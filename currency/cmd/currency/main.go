@@ -1,14 +1,20 @@
 package main
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
+	"golang.org/x/net/html/charset"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+	"io"
+	"log"
 	"log/slog"
 	"my-currency-service/currency/internal/config"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -44,6 +50,8 @@ func main() {
 
 	// TODO: запустить gRPC-сервер приложения
 	go application.MustRun()
+
+	testquery()
 
 	// TODO: Graceful shutdown
 	stop := make(chan os.Signal, 1)
@@ -145,4 +153,70 @@ func (a *App) Stop() {
 		Info("stopping gRPC server", slog.Int("port", a.port))
 
 	a.gRPCServer.GracefulStop()
+}
+
+func testquery() {
+	response, err := http.Get("https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=22/01/2007")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ParseCurrencyXMLtoGolangStructure(string(body))
+
+}
+
+type RawCurrency struct {
+	XMLName xml.Name `xml:"ValCurs"`
+	Date    string   `xml:"Date"`
+	Name    string   `xml:"Name"`
+
+	Valute []struct {
+		ID        string `xml:"ID,attr"`
+		NumCode   int    `xml:"NumCode"`
+		CharCode  string `xml:"CharCode"`
+		Nominal   int    `xml:"Nominal"`
+		Name      string `xml:"Name"`
+		Value     string `xml:"Value"`
+		VunitRate string `xml:"VunitRate"`
+	} `xml:"Valute"`
+}
+
+func ParseCurrencyXMLtoGolangStructure(data string) {
+	//result := new(RawCurrency)
+	//err := xml.Unmarshal([]byte(data), result)
+	//if err != nil {
+	//	fmt.Printf("error: %v", err)
+	//	return
+	//}
+	//
+	//fmt.Printf("--- Unmarshal ---\n\n")
+	//for _, CurrencyNode := range result.Valute {
+	//	fmt.Printf("Name : %s\n", CurrencyNode.CharCode)
+	//	fmt.Printf("Value  %s\n", CurrencyNode.Value)
+	//	fmt.Printf("ValueRate %s\n", CurrencyNode.VunitRate)
+	//}
+
+	filmsDB := new(RawCurrency)
+	r := bytes.NewReader([]byte(data))
+	d := xml.NewDecoder(r)
+	d.CharsetReader = charset.NewReaderLabel
+	err := d.Decode(&filmsDB)
+	if err != nil {
+		fmt.Printf("error: %v", err)
+		return
+	}
+
+	fmt.Printf("--- Unmarshal ---\n\n")
+	for _, CurrencyNode := range filmsDB.Valute {
+		fmt.Printf("Name : %s\n", CurrencyNode.CharCode)
+		fmt.Printf("Value  %s\n", CurrencyNode.Value)
+		fmt.Printf("ValueRate %s\n", CurrencyNode.VunitRate)
+	}
 }
