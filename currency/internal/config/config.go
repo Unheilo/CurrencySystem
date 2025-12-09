@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"github.com/ilyakaznacheev/cleanenv"
 	"os"
 )
@@ -41,8 +42,11 @@ type AppConfig struct {
 }
 
 func (dc DatabaseConfig) ToDSN() string {
-	// TODO: что-то с мигратором
-	return ""
+	dsn := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		dc.Host, dc.Port, dc.User, dc.Password, dc.Name,
+	)
+	return dsn
 }
 
 func MustLoad() *AppConfig {
