@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/xml"
 	"fmt"
 	"golang.org/x/net/html/charset"
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"io"
+	"io/ioutil"
 	"log"
 	"log/slog"
 	"my-currency-service/currency/internal/config"
@@ -17,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -51,7 +54,14 @@ func main() {
 	// TODO: запустить gRPC-сервер приложения
 	go application.MustRun()
 
-	testquery()
+	Message, err := MakeCurrencyRequest()
+
+	if err != nil {
+		fmt.Printf("Error while execute request: %v\n", err)
+	}
+	if err == nil {
+		fmt.Printf(Message)
+	}
 
 	// TODO: Graceful shutdown
 	stop := make(chan os.Signal, 1)
@@ -156,7 +166,7 @@ func (a *App) Stop() {
 }
 
 func testquery() {
-	response, err := http.Get("https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=22/01/2007")
+	response, err := http.Get("https://www.cbr.ru/scripts/XML_daily_eng.asp?date_req=22/01/2006")
 
 	if err != nil {
 		log.Fatal(err)
@@ -168,6 +178,7 @@ func testquery() {
 		log.Fatal(err)
 	}
 
+	fmt.Printf(string(body))
 	ParseCurrencyXMLtoGolangStructure(string(body))
 
 }
@@ -219,4 +230,111 @@ func ParseCurrencyXMLtoGolangStructure(data string) {
 		fmt.Printf("Value  %s\n", CurrencyNode.Value)
 		fmt.Printf("ValueRate %s\n", CurrencyNode.VunitRate)
 	}
+}
+
+func CurrencyTBank() {
+	// подходящая строка /D.USD.EUR.SP00.A?startPeriod=2024-05-01&endPeriod=2024-05-31
+	url := "https://sandbox-invest-public-api.tbank.ru/rest/tinkoff.public.invest.api.contract.v1.InstrumentsService/Currencies"
+	method := "POST"
+
+	payload := strings.NewReader(`{
+
+	"instrumentStatus":
+	
+	"INSTRUMENT_STATUS_UNSPECIFIED",
+	
+	"instrumentExchange":
+	
+	"INSTRUMENT_EXCHANGE_UNSPECIFIED"
+	
+	}`)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer t.aCX7w6w4SUGHALYCdzEqwBbif7cz13ZYu6Jwrboin07kjfGEC7B498J8uRa7YEwWOwCRWAiWq08Xx9ISwEoULA")
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(string(body))
+}
+
+func CurrencyEurounionRequestMessage(BasicCurrency string, ExchangeCurrency string, StartPeriod string, EndPeriod string) (string, error) {
+
+	if BasicCurrency == "" && ExchangeCurrency == "" && StartPeriod == "" && EndPeriod == "" {
+		return "", fmt.Errorf("Found zero value in CurrencyEurounionRequest")
+	}
+
+	sentence := fmt.Sprintf("https://data-api.ecb.europa.eu/service/data/EXR/D.%s.%s.SP00.A?startPeriod=%s&endPeriod=%s",
+		BasicCurrency, ExchangeCurrency, StartPeriod, EndPeriod)
+
+	return sentence, nil
+
+}
+
+func MakeCurrencyRequest() (string, error) {
+
+	BasicCurrency := "USD"
+	ExchangeCurrency := "EUR"
+	StartPeriod := "2024-05-01"
+	EndPeriod := "2024-05-31"
+
+	url, err := CurrencyEurounionRequestMessage(BasicCurrency, ExchangeCurrency, StartPeriod, EndPeriod)
+
+	// 1. Настраиваем транспорт, чтобы игнорировать проверку SSL-сертификатов
+	// Это аналог -k в curl или verify=False в Python
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
+	// 2. Создаем новый GET запрос
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Printf("Error while making request: %v\n", err)
+		return "", err
+	}
+
+	// 3. Устанавливаем заголовок Accept (Content Negotiation)
+	req.Header.Add("Accept", "application/vnd.sdmx.structurespecificdata+xml;version=2.1")
+
+	// 4. Выполняем запрос
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error while execute request: %v\n", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	// 5. Проверяем статус ответа
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Server returned error: %s\n", resp.Status)
+		return "", err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		fmt.Printf("Error while reading body: %v\n", err)
+		return "", err
+	}
+
+	return string(body), nil
+
 }
