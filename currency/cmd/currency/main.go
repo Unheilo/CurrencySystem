@@ -5,13 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
-	"golang.org/x/net/html/charset"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/reflection"
 	"io"
-	"io/ioutil"
 	"log"
 	"log/slog"
 	"my-currency-service/currency/internal/config"
@@ -19,8 +13,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
+
+	"golang.org/x/net/html/charset"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 )
 
 const (
@@ -59,8 +58,8 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error while execute request: %v\n", err)
 	}
-	if err == nil {
-		fmt.Printf(Message)
+	if err != nil {
+		fmt.Printf(string(Message))
 	}
 
 	// TODO: Graceful shutdown
@@ -232,49 +231,6 @@ func ParseCurrencyXMLtoGolangStructure(data string) {
 	}
 }
 
-func CurrencyTBank() {
-	// подходящая строка /D.USD.EUR.SP00.A?startPeriod=2024-05-01&endPeriod=2024-05-31
-	url := "https://sandbox-invest-public-api.tbank.ru/rest/tinkoff.public.invest.api.contract.v1.InstrumentsService/Currencies"
-	method := "POST"
-
-	payload := strings.NewReader(`{
-
-	"instrumentStatus":
-	
-	"INSTRUMENT_STATUS_UNSPECIFIED",
-	
-	"instrumentExchange":
-	
-	"INSTRUMENT_EXCHANGE_UNSPECIFIED"
-	
-	}`)
-
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, payload)
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", "Bearer t.aCX7w6w4SUGHALYCdzEqwBbif7cz13ZYu6Jwrboin07kjfGEC7B498J8uRa7YEwWOwCRWAiWq08Xx9ISwEoULA")
-
-	res, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(string(body))
-}
-
 func CurrencyEurounionRequestMessage(BasicCurrency string, ExchangeCurrency string, StartPeriod string, EndPeriod string) (string, error) {
 
 	if BasicCurrency == "" && ExchangeCurrency == "" && StartPeriod == "" && EndPeriod == "" {
@@ -288,7 +244,7 @@ func CurrencyEurounionRequestMessage(BasicCurrency string, ExchangeCurrency stri
 
 }
 
-func MakeCurrencyRequest() (string, error) {
+func MakeCurrencyRequest() ([]byte, error) {
 
 	BasicCurrency := "USD"
 	ExchangeCurrency := "EUR"
@@ -296,6 +252,9 @@ func MakeCurrencyRequest() (string, error) {
 	EndPeriod := "2024-05-31"
 
 	url, err := CurrencyEurounionRequestMessage(BasicCurrency, ExchangeCurrency, StartPeriod, EndPeriod)
+
+	fmt.Println("URL:")
+	fmt.Println(url)
 
 	// 1. Настраиваем транспорт, чтобы игнорировать проверку SSL-сертификатов
 	// Это аналог -k в curl или verify=False в Python
@@ -308,7 +267,7 @@ func MakeCurrencyRequest() (string, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		fmt.Printf("Error while making request: %v\n", err)
-		return "", err
+		return []byte(""), err
 	}
 
 	// 3. Устанавливаем заголовок Accept (Content Negotiation)
@@ -318,23 +277,81 @@ func MakeCurrencyRequest() (string, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("Error while execute request: %v\n", err)
-		return "", err
+		return []byte(""), err
 	}
 	defer resp.Body.Close()
 
 	// 5. Проверяем статус ответа
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("Server returned error: %s\n", resp.Status)
-		return "", err
+		return []byte(""), err
 	}
 
 	body, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		fmt.Printf("Error while reading body: %v\n", err)
-		return "", err
+		return []byte(""), err
 	}
 
-	return string(body), nil
+	points, err := extractObs(bytes.NewReader(body))
+	if err != nil {
+		fmt.Printf("Error while parsing XML: %v\n", err)
+		return body, err
+	}
 
+	for _, p := range points {
+		fmt.Println(p.Date, p.Value)
+	}
+
+	return body, nil
+
+}
+
+type Point struct {
+	Date  string
+	Value string
+}
+
+// XML-структуры для SDMX Generic Data формата ECB
+type GenericData struct {
+	XMLName xml.Name       `xml:"GenericData"`
+	DataSet GenericDataSet `xml:"DataSet"`
+}
+
+type GenericDataSet struct {
+	Series GenericSeries `xml:"Series"`
+}
+
+type GenericSeries struct {
+	Obs []GenericObs `xml:"Obs"`
+}
+
+type GenericObs struct {
+	ObsDimension GenericValue `xml:"ObsDimension"`
+	ObsValue     GenericValue `xml:"ObsValue"`
+}
+
+type GenericValue struct {
+	Value string `xml:"value,attr"`
+}
+
+func extractObs(body io.Reader) ([]Point, error) {
+	var data GenericData
+	decoder := xml.NewDecoder(body)
+	if err := decoder.Decode(&data); err != nil {
+		return nil, fmt.Errorf("failed to decode XML: %w", err)
+	}
+
+	points := make([]Point, 0, len(data.DataSet.Series.Obs))
+	for _, obs := range data.DataSet.Series.Obs {
+		if obs.ObsDimension.Value == "" || obs.ObsValue.Value == "" {
+			continue
+		}
+		points = append(points, Point{
+			Date:  obs.ObsDimension.Value,
+			Value: obs.ObsValue.Value,
+		})
+	}
+
+	return points, nil
 }
