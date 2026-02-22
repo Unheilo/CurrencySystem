@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-func CurrencyEurounionRequestMessage(ReqData *ExchangeRateRequest) (string, error) {
+func EurounionRequestMessage(ReqData *ExchangeRateRequest) (string, error) {
 
 	if ReqData.BasicCurrency == "" && ReqData.ExchangeCurrency == "" && ReqData.StartPeriod == "" && ReqData.EndPeriod == "" {
 		return "", fmt.Errorf("Found zero value in CurrencyEurounionRequest")
@@ -31,7 +31,7 @@ type ExchangeRateRequest struct {
 
 func MakeCurrencyRequest(ReqData *ExchangeRateRequest) ([]byte, error) {
 
-	url, err := CurrencyEurounionRequestMessage(ReqData)
+	url, err := EurounionRequestMessage(ReqData)
 
 	fmt.Println("URL:")
 	fmt.Println(url)
@@ -96,31 +96,27 @@ type Point struct {
 	Value string
 }
 
-// XML-структуры для SDMX Generic Data формата ECB
-type GenericData struct {
-	XMLName xml.Name       `xml:"GenericData"`
-	DataSet GenericDataSet `xml:"DataSet"`
+// XML-структуры для SDMX StructureSpecificData формата ECB
+type StructureSpecificData struct {
+	XMLName xml.Name                 `xml:"StructureSpecificData"`
+	DataSet StructureSpecificDataSet `xml:"DataSet"`
 }
 
-type GenericDataSet struct {
-	Series GenericSeries `xml:"Series"`
+type StructureSpecificDataSet struct {
+	Series StructureSpecificSeries `xml:"Series"`
 }
 
-type GenericSeries struct {
-	Obs []GenericObs `xml:"Obs"`
+type StructureSpecificSeries struct {
+	Obs []StructureSpecificObs `xml:"Obs"`
 }
 
-type GenericObs struct {
-	ObsDimension GenericValue `xml:"ObsDimension"`
-	ObsValue     GenericValue `xml:"ObsValue"`
-}
-
-type GenericValue struct {
-	Value string `xml:"value,attr"`
+type StructureSpecificObs struct {
+	TimePeriod string `xml:"TIME_PERIOD,attr"`
+	ObsValue   string `xml:"OBS_VALUE,attr"`
 }
 
 func extractObs(body io.Reader) ([]Point, error) {
-	var data GenericData
+	var data StructureSpecificData
 	decoder := xml.NewDecoder(body)
 	if err := decoder.Decode(&data); err != nil {
 		return nil, fmt.Errorf("failed to decode XML: %w", err)
@@ -128,12 +124,12 @@ func extractObs(body io.Reader) ([]Point, error) {
 
 	points := make([]Point, 0, len(data.DataSet.Series.Obs))
 	for _, obs := range data.DataSet.Series.Obs {
-		if obs.ObsDimension.Value == "" || obs.ObsValue.Value == "" {
+		if obs.TimePeriod == "" || obs.ObsValue == "" {
 			continue
 		}
 		points = append(points, Point{
-			Date:  obs.ObsDimension.Value,
-			Value: obs.ObsValue.Value,
+			Date:  obs.TimePeriod,
+			Value: obs.ObsValue,
 		})
 	}
 
