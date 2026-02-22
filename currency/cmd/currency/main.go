@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"my-currency-service/currency/internal/clients/currency"
 	"my-currency-service/currency/internal/config"
+	"my-currency-service/currency/internal/dto"
 	"net"
 	"os"
 	"os/signal"
@@ -46,9 +47,9 @@ func main() {
 	// TODO: запустить gRPC-сервер приложения
 	go application.MustRun()
 
-	CurrencyRequestParameters := currency.ExchangeRateRequest{
-		BasicCurrency:    "USD",
-		ExchangeCurrency: "EUR",
+	CurrencyRequestParameters := dto.ExchangeRateRequestDTO{
+		BasicCurrency:    dto.DefaultBaseCurrency,
+		ExchangeCurrency: dto.DefaultBaseExchangeCurrency,
 		StartPeriod:      "2024-05-01",
 		EndPeriod:        "2024-05-31",
 	}
@@ -58,8 +59,8 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error while execute request: %v\n", err)
 	}
-	if err != nil {
-		fmt.Printf(string(Message))
+	if err == nil {
+		fmt.Printf(Message.Currency)
 	}
 
 	// TODO: Graceful shutdown

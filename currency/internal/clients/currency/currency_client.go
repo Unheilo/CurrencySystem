@@ -6,30 +6,26 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"my-currency-service/currency/internal/dto"
 	"net/http"
+	"strconv"
+	"time"
 )
 
-func EurounionRequestMessage(ReqData *ExchangeRateRequest) (string, error) {
+func EurounionRequestMessage(ReqData *dto.ExchangeRateRequestDTO) (string, error) {
 
 	if ReqData.BasicCurrency == "" && ReqData.ExchangeCurrency == "" && ReqData.StartPeriod == "" && ReqData.EndPeriod == "" {
 		return "", fmt.Errorf("Found zero value in CurrencyEurounionRequest")
 	}
 
-	sentence := fmt.Sprintf("https://data-api.ecb.europa.eu/service/data/EXR/D.%s.%s.SP00.A?startPeriod=%s&endPeriod=%s",
+	sentence := fmt.Sprintf(dto.DefaultEurounionExchangeAdress,
 		ReqData.BasicCurrency, ReqData.ExchangeCurrency, ReqData.StartPeriod, ReqData.EndPeriod)
 
 	return sentence, nil
 
 }
 
-type ExchangeRateRequest struct {
-	BasicCurrency    string
-	ExchangeCurrency string
-	StartPeriod      string
-	EndPeriod        string
-}
-
-func MakeCurrencyRequest(ReqData *ExchangeRateRequest) ([]byte, error) {
+func MakeCurrencyRequest(ReqData *dto.ExchangeRateRequestDTO) (dto.CurrencyResponseDTO, error) {
 
 	url, err := EurounionRequestMessage(ReqData)
 
@@ -47,7 +43,7 @@ func MakeCurrencyRequest(ReqData *ExchangeRateRequest) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		fmt.Printf("Error while making request: %v\n", err)
-		return []byte(""), err
+		return dto.CurrencyResponseDTO{}, err
 	}
 
 	// 3. Устанавливаем заголовок Accept (Content Negotiation)
@@ -57,7 +53,7 @@ func MakeCurrencyRequest(ReqData *ExchangeRateRequest) ([]byte, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("Error while execute request: %v\n", err)
-		return []byte(""), err
+		return dto.CurrencyResponseDTO{}, err
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -68,86 +64,58 @@ func MakeCurrencyRequest(ReqData *ExchangeRateRequest) ([]byte, error) {
 	// 5. Проверяем статус ответа
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("Server returned error: %s\n", resp.Status)
-		return []byte(""), err
+		return dto.CurrencyResponseDTO{}, err
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("Error while reading body: %v\n", err)
-		return []byte(""), err
+		return dto.CurrencyResponseDTO{}, err
 	}
 
 	points, err := extractObs(bytes.NewReader(body))
 	if err != nil {
 		fmt.Printf("Error while parsing XML: %v\n", err)
-		return body, err
+		return dto.CurrencyResponseDTO{}, err
 	}
 
 	for _, p := range points {
 		fmt.Println(p.Date, p.Value)
 	}
 
-	return body, nil
+	return dto.CurrencyResponseDTO{Currency: dto.DefaultBaseExchangeCurrency, Rates: points}, nil
 
 }
 
-type Point struct {
-	Date  string
-	Value string
-}
-
-// XML-структуры для SDMX StructureSpecificData формата ECB
-type StructureSpecificData struct {
-	XMLName xml.Name                 `xml:"StructureSpecificData"`
-	DataSet StructureSpecificDataSet `xml:"DataSet"`
-}
-
-type StructureSpecificDataSet struct {
-	Series StructureSpecificSeries `xml:"Series"`
-}
-
-type StructureSpecificSeries struct {
-	Obs []StructureSpecificObs `xml:"Obs"`
-}
-
-type StructureSpecificObs struct {
-	TimePeriod string `xml:"TIME_PERIOD,attr"`
-	ObsValue   string `xml:"OBS_VALUE,attr"`
-}
-
-func extractObs(body io.Reader) ([]Point, error) {
+func extractObs(body io.Reader) ([]dto.RateRecordDTO, error) {
 	var data StructureSpecificData
 	decoder := xml.NewDecoder(body)
 	if err := decoder.Decode(&data); err != nil {
 		return nil, fmt.Errorf("failed to decode XML: %w", err)
 	}
 
-	points := make([]Point, 0, len(data.DataSet.Series.Obs))
+	RateRecords := make([]dto.RateRecordDTO, 0, len(data.DataSet.Series.Obs))
 	for _, obs := range data.DataSet.Series.Obs {
 		if obs.TimePeriod == "" || obs.ObsValue == "" {
 			continue
 		}
-		points = append(points, Point{
-			Date:  obs.TimePeriod,
-			Value: obs.ObsValue,
+
+		date, err := time.Parse("2006-01-02", obs.TimePeriod)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse date %q: %w", obs.TimePeriod, err)
+		}
+
+		val, err := strconv.ParseFloat(obs.ObsValue, 32)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse value %q: %w", obs.ObsValue, err)
+		}
+
+		RateRecords = append(RateRecords, dto.RateRecordDTO{
+			Date:  date,
+			Value: float32(val),
 		})
+
 	}
 
-	return points, nil
-}
-
-type RawCurrency struct {
-	XMLName xml.Name `xml:"ValCurs"`
-	Date    string   `xml:"Date"`
-	Name    string   `xml:"Name"`
-
-	Valute []struct {
-		ID        string `xml:"ID,attr"`
-		NumCode   int    `xml:"NumCode"`
-		CharCode  string `xml:"CharCode"`
-		Nominal   int    `xml:"Nominal"`
-		Name      string `xml:"Name"`
-		Value     string `xml:"Value"`
-		VunitRate string `xml:"VunitRate"`
-	} `xml:"Valute"`
+	return RateRecords, nil
 }
