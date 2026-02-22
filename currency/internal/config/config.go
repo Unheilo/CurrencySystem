@@ -8,37 +8,37 @@ import (
 )
 
 type ServiceConfig struct {
-	ServerPort int    `mapstructure:"server_port"`
-	Env        string `mapstructure:"env"`
+	ServerPort int    `yaml:"server_port"`
+	Env        string `yaml:"env"`
 }
 
 type APIConfig struct {
-	BaseURL        string `mapstructure:"base_url"`
-	TimeoutSeconds int    `mapstructure:"timeout_seconds"`
+	BaseURL        string `yaml:"base_url"`
+	TimeoutSeconds int    `yaml:"timeout_seconds"`
 }
 
 type DatabaseConfig struct {
-	Host          string `mapstructure:"host"`
-	Port          int    `mapstructure:"port"`
-	User          string `mapstructure:"user"`
-	Password      string `mapstructure:"password"`
-	Name          string `mapstructure:"name"`
-	MigrationPath string `mapstructure:"migrations_path"`
+	Host          string `yaml:"host"`
+	Port          int    `yaml:"port"`
+	User          string `yaml:"user"`
+	Password      string `yaml:"password"`
+	Name          string `yaml:"name"`
+	MigrationPath string `yaml:"migrations_path"`
 }
 
 type WorkerConfig struct {
-	Schedule     string `mapstructure:"schedule"`
+	Schedule     string `yaml:"schedule"`
 	CurrencyPair struct {
-		BaseCurrency   string `mapstructure:"base_currency"`
-		TargetCurrency string `mapstructure:"target_currency"`
-	} `mapstructure:"currency_pair"`
+		BaseCurrency   string `yaml:"base_currency"`
+		TargetCurrency string `yaml:"target_currency"`
+	} `yaml:"currency_pair"`
 }
 
 type AppConfig struct {
-	Service  ServiceConfig  `mapstructure:"service"`
-	API      APIConfig      `mapstructure:"api"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Worker   WorkerConfig   `mapstructure:"worker"`
+	Service  ServiceConfig  `yaml:"service"`
+	API      APIConfig      `yaml:"api"`
+	Database DatabaseConfig `yaml:"database"`
+	Worker   WorkerConfig   `yaml:"worker"`
 }
 
 func (dc DatabaseConfig) ToDSN() string {

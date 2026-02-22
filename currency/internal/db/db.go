@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"my-currency-service/currency/internal/config"
+
+	_ "github.com/lib/pq"
 )
 
 func NewDatabaseConnection(cfg config.DatabaseConfig) (*sql.DB, error) {
@@ -14,11 +16,11 @@ func NewDatabaseConnection(cfg config.DatabaseConfig) (*sql.DB, error) {
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: #{err}")
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to connect to database: #{err}")
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	return db, nil

@@ -5,11 +5,15 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
+
+//go:embed *.sql
+var MigrationsFS embed.FS
 
 type Migrator struct {
 	srcDriver source.Driver
@@ -37,7 +41,13 @@ func (m *Migrator) ApplyMigrations(db *sql.DB) error {
 	}
 
 	defer func() {
-		migrator.Close()
+		sourceErr, dbErr := migrator.Close()
+		if sourceErr != nil {
+			fmt.Printf("error closing migration source: %v\n", sourceErr)
+		}
+		if dbErr != nil {
+			fmt.Printf("error closing migration database: %v\n", dbErr)
+		}
 	}()
 
 	if err = migrator.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
