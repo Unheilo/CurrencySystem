@@ -21,6 +21,13 @@ type ExchangeRateRequestDTO struct {
 	EndPeriod        string
 }
 
+type CurrencyRequestDTO struct {
+	BaseCurrency   string
+	TargetCurrency string
+	DateFrom       time.Time
+	DateTo         time.Time
+}
+
 type CurrencyResponseDTO struct {
 	Currency string
 	Rates    []RateRecordDTO
