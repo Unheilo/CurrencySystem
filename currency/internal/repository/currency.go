@@ -7,15 +7,14 @@ import (
 )
 
 type ExchangeRateRepository interface {
-	Save(ctx context.Context, date time.Time, baseCurrency string, exchangeCurrency string, rate float32) error
-	GetByDateRange(ctx context.Context, baseCurrency string, exchangeCurrency string, from time.Time, to time.Time) ([]dto.CurrencyResponseDTO, error)
-	GetByDate(ctx context.Context, baseCurrency string, exchangeCurrency string, date time.Time) (*dto.CurrencyResponseDTO, error)
+	Save(ctx context.Context, date time.Time, baseCurrency string, rates map[string]float64) error
+	FindInInterval(ctx context.Context, dto *dto.CurrencyRequestDTO) ([]CurrencyRate, error)
 }
 
 type Currency struct {
-	DB ExchangeRateRepository
+	repo ExchangeRateRepository
 }
 
 func NewCurrency(repo ExchangeRateRepository) *Currency {
-	return &Currency{DB: repo}
+	return &Currency{repo: repo}
 }

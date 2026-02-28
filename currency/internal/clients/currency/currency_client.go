@@ -2,15 +2,43 @@ package currency
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log/slog"
+	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/dto"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
+
+type Currency struct {
+	baseURL    *url.URL
+	httpClient *http.Client
+	logger     *slog.Logger
+}
+
+func New(cfg config.APIConfig, logger *slog.Logger) (Currency, error) {
+	baseURL, err := url.Parse(cfg.BaseURL)
+	if err != nil {
+		return Currency{}, fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	return Currency{
+		baseURL: baseURL,
+		httpClient: &http.Client{
+			Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // TODO: сделать конфигурируемым, такое значение не для прода
+			},
+		},
+		logger: logger,
+	}, nil
+}
 
 func EurounionRequestMessage(ReqData *dto.ExchangeRateRequestDTO) (string, error) {
 
@@ -22,6 +50,81 @@ func EurounionRequestMessage(ReqData *dto.ExchangeRateRequestDTO) (string, error
 		ReqData.BasicCurrency, ReqData.ExchangeCurrency, ReqData.StartPeriod, ReqData.EndPeriod)
 
 	return sentence, nil
+
+}
+
+func RequestMessage(ReqData *dto.CurrencyRequestDTO) (string, error) {
+
+	if ReqData.BaseCurrency == "" || ReqData.TargetCurrency == "" ||
+		ReqData.DateFrom.IsZero() || ReqData.DateTo.IsZero() {
+		return "", fmt.Errorf("Found zero value in CurrencyEurounionRequest: "+
+			"BaseCurrency %w, TargetCurrency %w, DateFrom %w, DateTo %w",
+			ReqData.BaseCurrency, ReqData.TargetCurrency, ReqData.DateFrom, ReqData.DateTo)
+	}
+
+	sentence := fmt.Sprintf(dto.DefaultEurounionExchangeAdress,
+		ReqData.BaseCurrency, ReqData.TargetCurrency,
+		ReqData.DateFrom.Format("2006-01-02"), ReqData.DateTo.Format("2006-01-02"))
+
+	return sentence, nil
+
+}
+
+func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyRequestDTO) (map[string]float64, error) {
+
+	messageUrl, err := RequestMessage(ReqData)
+
+	if err != nil {
+		return nil, err
+	}
+
+	c.logger.DebugContext(ctx, "sending request", slog.String("url", messageUrl))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, messageUrl, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// TODO: Вынести в конфиг формат xml
+	req.Header.Add("Accept", "application/vnd.sdmx.structurespecificdata+xml;version=2.1")
+
+	resp, err := c.httpClient.Do(req)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error while execute request: %v\n", err)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+		}
+	}(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Server returned error: %s\n", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Error while reading body: %v\n", err)
+	}
+
+	points, err := extractObs(bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("Error while parsing XML: %v\n", err)
+	}
+
+	//for _, p := range points {
+	//	fmt.Println(p.Date, p.Value)
+	//}
+
+	// TODO: add metrics for this method
+
+	rates := make(map[string]float64, len(points))
+	for _, p := range points {
+		rates[p.Date.Format("2006-01-02")] = float64(p.Value)
+	}
+
+	return rates, nil
 
 }
 
@@ -52,8 +155,8 @@ func MakeCurrencyRequest(ReqData *dto.ExchangeRateRequestDTO) (dto.CurrencyRespo
 	// 4. Выполняем запрос
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error while execute request: %v\n", err)
-		return dto.CurrencyResponseDTO{}, err
+
+		return dto.CurrencyResponseDTO{}, fmt.Errorf("Error while execute request: %v\n", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -63,27 +166,24 @@ func MakeCurrencyRequest(ReqData *dto.ExchangeRateRequestDTO) (dto.CurrencyRespo
 
 	// 5. Проверяем статус ответа
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Server returned error: %s\n", resp.Status)
-		return dto.CurrencyResponseDTO{}, err
+		return dto.CurrencyResponseDTO{}, fmt.Errorf("Server returned error: %s\n", resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error while reading body: %v\n", err)
-		return dto.CurrencyResponseDTO{}, err
+		return dto.CurrencyResponseDTO{}, fmt.Errorf("Error while reading body: %v\n", err)
 	}
 
 	points, err := extractObs(bytes.NewReader(body))
 	if err != nil {
-		fmt.Printf("Error while parsing XML: %v\n", err)
-		return dto.CurrencyResponseDTO{}, err
+		return dto.CurrencyResponseDTO{}, fmt.Errorf("Error while parsing XML: %v\n", err)
 	}
 
 	for _, p := range points {
 		fmt.Println(p.Date, p.Value)
 	}
 
-	return dto.CurrencyResponseDTO{Currency: dto.DefaultBaseExchangeCurrency, Rates: points}, nil
+	return dto.CurrencyResponseDTO{Currency: ReqData.BasicCurrency, Rates: points}, nil
 
 }
 
