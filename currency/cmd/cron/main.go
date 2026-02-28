@@ -1,14 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"my-currency-service/currency/internal/clients/currency"
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/db"
 	"my-currency-service/currency/internal/logger"
 	"my-currency-service/currency/internal/repository"
 	"my-currency-service/currency/internal/service"
+	"my-currency-service/currency/internal/worker"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -58,6 +63,20 @@ func run() error {
 	c := gocron.NewScheduler(time.UTC)
 
 	//TODO: сделать worker модуль и от него реализовать cron
+	currencyWorker := worker.NewCurrency(cfg.Worker, svc, c, loggerInstance)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if err := currencyWorker.StartFetchingCurrencyRates(); err != nil {
+		loggerInstance.Error("Error start fetching currency rates",
+			slog.Time("timestamp", time.Now().UTC()),
+			slog.Any("error", err))
+	}
+
+	<-ctx.Done()
+
+	loggerInstance.Info("Shutting down gracefully, press Ctrl+C again to force")
 
 	return nil
 }
