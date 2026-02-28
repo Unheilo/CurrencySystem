@@ -3,11 +3,15 @@ package main
 import (
 	"fmt"
 	"log"
-	"log/slog"
+	"my-currency-service/currency/internal/clients/currency"
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/db"
 	"my-currency-service/currency/internal/logger"
 	"my-currency-service/currency/internal/repository"
+	"my-currency-service/currency/internal/service"
+	"time"
+
+	"github.com/go-co-op/gocron"
 )
 
 func main() {
@@ -26,18 +30,34 @@ func run() error {
 	}
 
 	// repo
-	repoPrototype := repository.NewPostgresRepository(conn)
-	repo, err := repository.NewCurrency(repoPrototype)
+	repo := repository.NewPostgresRepository(conn)
+
+	//TODO: непонятно как тут с интерфейсами логами и надо ли под это делать
+	//repo, err := repository.NewCurrency(repoPrototype)
+
 	if err != nil {
 		return fmt.Errorf("error creating repository: %v", err)
 	}
 
-	//logger
-	log := logger.SetupLogger(cfg.Service.Env)
+	//loggerInstance
+	loggerInstance, err := logger.SetupLogger(cfg.Service.Env)
+	if err != nil {
+		return fmt.Errorf("error creating logger: %v", err)
+	}
 
 	//client
+	client, err := currency.New(cfg.API, loggerInstance)
+	if err != nil {
+		return fmt.Errorf("error creating client: %v", err)
+	}
+
+	//svc
+	svc := service.NewCurrency(repo, client, loggerInstance)
 
 	//cron
+	c := gocron.NewScheduler(time.UTC)
+
+	//TODO: сделать worker модуль и от него реализовать cron
 
 	return nil
 }
