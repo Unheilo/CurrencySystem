@@ -15,6 +15,8 @@ type Currency struct {
 	repo ExchangeRateRepository
 }
 
-func NewCurrency(repo ExchangeRateRepository) *Currency {
-	return &Currency{repo: repo}
+func NewCurrency(repo ExchangeRateRepository) (Currency, error) {
+	return Currency{
+		repo: repo,
+	}, nil
 }

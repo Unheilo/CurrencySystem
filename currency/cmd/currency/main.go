@@ -2,24 +2,20 @@ package main
 
 import (
 	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/reflection"
 	"log/slog"
 	"my-currency-service/currency/internal/clients/currency"
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/dto"
+	"my-currency-service/currency/internal/logger"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
-)
 
-const (
-	envLocal = "local"
-	envDev   = "dev"
-	envProd  = "prod"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -28,7 +24,7 @@ func main() {
 
 	fmt.Println(cfg)
 
-	log := setupLogger(cfg.Service.Env)
+	log := logger.SetupLogger(cfg.Service.Env)
 
 	log.Info("Starting application",
 		slog.Any("config", cfg),
@@ -74,27 +70,6 @@ func main() {
 	application.Stop()
 
 	log.Info("application stopped")
-}
-
-func setupLogger(env string) *slog.Logger {
-	var log *slog.Logger
-
-	switch env {
-	case envLocal:
-		log = slog.New(
-			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
-		)
-	case envDev:
-		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
-		)
-	case envProd:
-		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
-		)
-	}
-
-	return log
 }
 
 type App struct {
