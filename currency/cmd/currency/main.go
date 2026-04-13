@@ -24,7 +24,11 @@ func main() {
 
 	fmt.Println(cfg)
 
-	log := logger.SetupLogger(cfg.Service.Env)
+	log, err := logger.SetupLogger(cfg.Service.Env)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
+		os.Exit(1)
+	}
 
 	log.Info("Starting application",
 		slog.Any("config", cfg),
