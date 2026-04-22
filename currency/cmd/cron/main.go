@@ -73,6 +73,8 @@ func run() error {
 
 	<-ctx.Done()
 
+	currencyWorker.Stop()
+
 	loggerInstance.Info("Shutting down gracefully, press Ctrl+C again to force")
 
 	return nil

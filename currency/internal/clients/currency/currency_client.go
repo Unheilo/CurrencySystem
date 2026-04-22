@@ -11,29 +11,23 @@ import (
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/dto"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 )
 
 type Currency struct {
-	baseURL    *url.URL
+	baseURL    string
 	httpClient *http.Client
 	logger     *slog.Logger
 }
 
 func New(cfg config.APIConfig, logger *slog.Logger) (Currency, error) {
-	baseURL, err := url.Parse(cfg.BaseURL)
-	if err != nil {
-		return Currency{}, fmt.Errorf("invalid base URL: %w", err)
-	}
-
 	return Currency{
-		baseURL: baseURL,
+		baseURL: cfg.BaseURL,
 		httpClient: &http.Client{
 			Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.SkipVerify}, // TODO: сделать конфигурируемым, такое значение не для прода
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.SkipVerify},
 			},
 		},
 		logger: logger,
@@ -70,10 +64,20 @@ func RequestMessage(ReqData *dto.CurrencyRequestDTO) (string, error) {
 
 }
 
+func (c *Currency) buildURL(ReqData *dto.CurrencyRequestDTO) (string, error) {
+	if ReqData.BaseCurrency == "" || ReqData.TargetCurrency == "" ||
+		ReqData.DateFrom.IsZero() || ReqData.DateTo.IsZero() {
+		return "", fmt.Errorf("found zero value in request: BaseCurrency %s, TargetCurrency %s, DateFrom %s, DateTo %s",
+			ReqData.BaseCurrency, ReqData.TargetCurrency, ReqData.DateFrom, ReqData.DateTo)
+	}
+	return fmt.Sprintf(c.baseURL,
+		ReqData.BaseCurrency, ReqData.TargetCurrency,
+		ReqData.DateFrom.Format("2006-01-02"), ReqData.DateTo.Format("2006-01-02")), nil
+}
+
 func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyRequestDTO) (map[string]float64, error) {
 
-	messageUrl, err := RequestMessage(ReqData)
-
+	messageUrl, err := c.buildURL(ReqData)
 	if err != nil {
 		return nil, err
 	}

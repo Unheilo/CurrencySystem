@@ -6,14 +6,17 @@ import (
 	"log/slog"
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/dto"
-	"my-currency-service/currency/internal/service"
 	"time"
 
 	"github.com/go-co-op/gocron"
 )
 
+type CurrencyService interface {
+	FetchAndSaveCurrencyRates(ctx context.Context, req *dto.CurrencyRequestDTO) error
+}
+
 type Currency struct {
-	currencyService service.Currency
+	currencyService CurrencyService
 	cron            *gocron.Scheduler
 	schedule        string
 	baseCurrency    string
@@ -23,7 +26,7 @@ type Currency struct {
 
 func NewCurrency(
 	cfg config.WorkerConfig,
-	service service.Currency,
+	service CurrencyService,
 	cron *gocron.Scheduler,
 	logger *slog.Logger,
 ) *Currency {
@@ -59,7 +62,7 @@ func (w *Currency) StartFetchingCurrencyRates() error {
 
 	}()
 
-	_, err := w.cron.Do(func() {
+	_, err := w.cron.Cron(w.schedule).Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5) //TODO: move to config
 		defer cancel()
 
@@ -79,7 +82,12 @@ func (w *Currency) StartFetchingCurrencyRates() error {
 		return fmt.Errorf("cron.Do: %w", err)
 	}
 
-	w.cron.StartBlocking()
+	w.cron.StartAsync()
 
+	return nil
+}
+
+func (w *Currency) Stop() error {
+	w.cron.Stop()
 	return nil
 }

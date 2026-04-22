@@ -3,7 +3,7 @@ service:
   env: "local"
 
 api:
-  base_url: "https://%s.currency-api.pages.dev/v1/currencies"
+  base_url: "https://data-api.ecb.europa.eu/service/data/EXR/D.%s.%s.SP00.A?startPeriod=%s&endPeriod=%s"
   timeout_seconds: 10
 
 database:
@@ -16,5 +16,5 @@ database:
 worker:
   schedule: "@daily"
   currency_pair:
-    base_currency: "RUB"
-    target_currency: "USD"
+    base_currency: "USD"
+    target_currency: "EUR"

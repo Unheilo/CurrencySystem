@@ -21,8 +21,8 @@ func NewCurrency(
 	repo repository.ExchangeRateRepository,
 	client currency.Currency,
 	logger *slog.Logger,
-) Currency {
-	return Currency{
+) *Currency {
+	return &Currency{
 		currencyRepo: repo,
 		client:       client,
 		logger:       logger,
