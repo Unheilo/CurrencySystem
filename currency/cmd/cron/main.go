@@ -30,8 +30,9 @@ func run() error {
 	cfg := config.MustLoad()
 
 	conn, err := db.NewDatabaseConnection(cfg.Database)
+
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("error creating repository: %v", err)
 	}
 
 	// repo
@@ -39,10 +40,6 @@ func run() error {
 
 	//TODO: непонятно как тут с интерфейсами логами и надо ли под это делать
 	//repo, err := repository.NewCurrency(repoPrototype)
-
-	if err != nil {
-		return fmt.Errorf("error creating repository: %v", err)
-	}
 
 	//loggerInstance
 	loggerInstance, err := logger.SetupLogger(cfg.Service.Env)

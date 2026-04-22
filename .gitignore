@@ -3,3 +3,5 @@ pgdata/
 currency.exe
 docs/
 .claude/
+.vscode/
+CLAUDE.md

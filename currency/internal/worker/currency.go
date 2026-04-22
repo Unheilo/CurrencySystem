@@ -63,7 +63,10 @@ func (w *Currency) StartFetchingCurrencyRates() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5) //TODO: move to config
 		defer cancel()
 
-		err := w.currencyService.FetchAndSaveCurrencyRates(ctx, &dto.CurrencyRequestDTO{})
+		err := w.currencyService.FetchAndSaveCurrencyRates(ctx, &dto.CurrencyRequestDTO{
+			BaseCurrency:   w.baseCurrency,
+			TargetCurrency: w.targetCurrency,
+		})
 		if err != nil {
 			w.logger.Error("Failed to fetch currency rate on schedule",
 				slog.Time("timestamp", time.Now().UTC()),

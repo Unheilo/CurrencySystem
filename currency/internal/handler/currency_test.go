@@ -135,11 +135,12 @@ func TestGetRate_DefaultBaseCurrency(t *testing.T) {
 	now := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 
 	service.On("GetCurrencyRatesInInterval", mock.Anything, mock.MatchedBy(func(req *dto.CurrencyRequestDTO) bool {
-		return req.BaseCurrency == "USD"
+		return req.BaseCurrency == dto.DefaultBaseCurrency
 	})).Return([]repository.CurrencyRate{
 		{Date: now, Rate: 1.15},
 	}, nil)
 
+	// No BaseCurrency in request — should fall back to DefaultBaseCurrency
 	req := &currency.GetRateRequest{
 		Currency: "EUR",
 		DataFrom: timestamppb.New(time.Now()),
@@ -150,7 +151,32 @@ func TestGetRate_DefaultBaseCurrency(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "EUR", resp.Currency)
+}
 
+func TestGetRate_CustomBaseCurrency(t *testing.T) {
+	server, service := newTestServer(t)
+
+	now := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
+
+	service.On("GetCurrencyRatesInInterval", mock.Anything, mock.MatchedBy(func(req *dto.CurrencyRequestDTO) bool {
+		return req.BaseCurrency == "EUR" && req.TargetCurrency == "GBP"
+	})).Return([]repository.CurrencyRate{
+		{Date: now, Rate: 0.86},
+	}, nil)
+
+	req := &currency.GetRateRequest{
+		Currency:     "GBP",
+		BaseCurrency: "EUR",
+		DataFrom:     timestamppb.New(time.Now()),
+		DateTo:       timestamppb.New(time.Now()),
+	}
+
+	resp, err := server.GetRate(context.Background(), req)
+
+	require.NoError(t, err)
+	assert.Equal(t, "GBP", resp.Currency)
+	assert.Len(t, resp.Rates, 1)
+	assert.Equal(t, float32(0.86), resp.Rates[0].Rate)
 }
 
 func TestGetRate_DatesPassedCorrectly(t *testing.T) {
@@ -174,7 +200,7 @@ func TestGetRate_DatesPassedCorrectly(t *testing.T) {
 	}
 
 	resp, err := server.GetRate(context.Background(), req)
-
+	
 	require.NoError(t, err)
 	assert.Equal(t, dateFrom, resp.Rates[0].Date.AsTime())
 	assert.Equal(t, dateTo, resp.Rates[1].Date.AsTime())

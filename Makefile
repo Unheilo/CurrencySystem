@@ -22,8 +22,10 @@ migrate:
 	go run $(MIGRATOR_PATH) --config=$(CONFIG_PATH)
 
 # Генерация gRPC кода из proto
+PROTOC=$(shell which protoc || echo protoc)
+
 proto:
-	protoc --go_out=. --go-grpc_out=. proto/currency/currency_service.proto
+	$(PROTOC) --go_out=. --go-grpc_out=. proto/currency/currency_service.proto
 
 # Линтер
 lint:

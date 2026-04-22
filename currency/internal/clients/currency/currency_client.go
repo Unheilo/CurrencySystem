@@ -33,7 +33,7 @@ func New(cfg config.APIConfig, logger *slog.Logger) (Currency, error) {
 		httpClient: &http.Client{
 			Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // TODO: сделать конфигурируемым, такое значение не для прода
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.SkipVerify}, // TODO: сделать конфигурируемым, такое значение не для прода
 			},
 		},
 		logger: logger,
@@ -58,7 +58,7 @@ func RequestMessage(ReqData *dto.CurrencyRequestDTO) (string, error) {
 	if ReqData.BaseCurrency == "" || ReqData.TargetCurrency == "" ||
 		ReqData.DateFrom.IsZero() || ReqData.DateTo.IsZero() {
 		return "", fmt.Errorf("Found zero value in CurrencyEurounionRequest: "+
-			"BaseCurrency %w, TargetCurrency %w, DateFrom %w, DateTo %w",
+			"BaseCurrency %s, TargetCurrency %s, DateFrom %s, DateTo %s",
 			ReqData.BaseCurrency, ReqData.TargetCurrency, ReqData.DateFrom, ReqData.DateTo)
 	}
 
@@ -112,10 +112,6 @@ func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyR
 	if err != nil {
 		return nil, fmt.Errorf("Error while parsing XML: %v\n", err)
 	}
-
-	//for _, p := range points {
-	//	fmt.Println(p.Date, p.Value)
-	//}
 
 	// TODO: add metrics for this method
 

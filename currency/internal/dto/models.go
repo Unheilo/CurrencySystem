@@ -44,7 +44,11 @@ type RateRecordDTO struct {
 	Value float32
 }
 
-func CurrencyRequestDTOFromProtobuf(req *currency.GetRateRequest, baseCurrency string) *CurrencyRequestDTO {
+func CurrencyRequestDTOFromProtobuf(req *currency.GetRateRequest) *CurrencyRequestDTO {
+	baseCurrency := req.BaseCurrency
+	if baseCurrency == "" {
+		baseCurrency = DefaultBaseCurrency
+	}
 	return &CurrencyRequestDTO{
 		BaseCurrency:   baseCurrency,
 		TargetCurrency: req.Currency,

@@ -48,8 +48,8 @@ func main() {
 	go application.MustRun()
 
 	CurrencyRequestParameters := dto.ExchangeRateRequestDTO{
-		BasicCurrency:    dto.DefaultBaseCurrency,
-		ExchangeCurrency: dto.DefaultBaseExchangeCurrency,
+		BasicCurrency:    "USD",
+		ExchangeCurrency: "EUR",
 		StartPeriod:      "2024-05-01",
 		EndPeriod:        "2024-05-31",
 	}
@@ -60,7 +60,7 @@ func main() {
 		fmt.Printf("Error while execute request: %v\n", err)
 	}
 	if err == nil {
-		fmt.Printf(Message.Currency)
+		fmt.Printf("%s", Message.Currency)
 	}
 
 	// TODO: Graceful shutdown

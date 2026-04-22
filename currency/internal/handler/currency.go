@@ -12,7 +12,7 @@ import (
 
 func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRequest) (*currency.GetRateResponse, error) {
 	start := time.Now()
-	reqDTO := dto.CurrencyRequestDTOFromProtobuf(request, dto.DefaultBaseCurrency)
+	reqDTO := dto.CurrencyRequestDTOFromProtobuf(request)
 
 	// TODO: метрики в мидлвары
 	s.requestCount.WithLabelValues("GetRate").Inc()

@@ -3,8 +3,9 @@ package config
 import (
 	"flag"
 	"fmt"
-	"github.com/ilyakaznacheev/cleanenv"
 	"os"
+
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type ServiceConfig struct {
@@ -15,6 +16,7 @@ type ServiceConfig struct {
 type APIConfig struct {
 	BaseURL        string `yaml:"base_url"`
 	TimeoutSeconds int    `yaml:"timeout_seconds"`
+	SkipVerify     bool   `yaml:"skip_verify"`
 }
 
 type DatabaseConfig struct {

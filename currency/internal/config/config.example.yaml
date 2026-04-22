@@ -5,6 +5,7 @@ service:
 api:
   base_url: "https://%s.currency-api.pages.dev/v1/currencies"
   timeout_seconds: 10
+  skip_verify: False
 
 database:
   host: "localhost"
