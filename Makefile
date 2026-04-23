@@ -1,13 +1,18 @@
-.PHONY: run build test test-integration migrate proto clean
+.PHONY: run run-cron build test test-integration migrate proto clean
 
 CONFIG_PATH=currency/internal/config/config.yaml
 MAIN_PATH=currency/cmd/currency/main.go
+CRON_PATH=currency/cmd/cron/main.go
 MIGRATOR_PATH=currency/cmd/migrator/main.go
 BINARY_NAME=currency.exe
 
 # Запуск приложения
 run:
 	go run $(MAIN_PATH) --config=$(CONFIG_PATH)
+
+# Запуск планировщика
+run-cron:
+	go run $(CRON_PATH) --config=$(CONFIG_PATH)
 
 # Сборка бинарника
 build:

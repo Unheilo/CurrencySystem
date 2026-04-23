@@ -7,25 +7,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TODO: Вынести эти тестовые константы в конфиг
+// TODO: вынести в cfg.Worker.CurrencyPair.BaseCurrency и передавать в
+// CurrencyRequestDTOFromProtobuf как параметр — потребует рефактор handler и его тестов
 const (
 	DefaultBaseCurrency = "USD"
 )
-
-const (
-	DefaultBaseExchangeCurrency = "EUR"
-)
-
-const (
-	DefaultEurounionExchangeAdress = "https://data-api.ecb.europa.eu/service/data/EXR/D.%s.%s.SP00.A?startPeriod=%s&endPeriod=%s"
-)
-
-type ExchangeRateRequestDTO struct {
-	BasicCurrency    string
-	ExchangeCurrency string
-	StartPeriod      string
-	EndPeriod        string
-}
 
 type CurrencyRequestDTO struct {
 	BaseCurrency   string

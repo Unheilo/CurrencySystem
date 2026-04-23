@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"my-currency-service/currency/internal/clients/currency"
 	"my-currency-service/currency/internal/config"
-	"my-currency-service/currency/internal/dto"
 	"my-currency-service/currency/internal/logger"
 	"net"
 	"os"
@@ -34,36 +32,13 @@ func main() {
 		slog.Any("config", cfg),
 	)
 
-	log.Debug("debug message")
-
-	log.Error("error message")
-
-	log.Warn("warn message")
-
 	fmt.Println(cfg.Service.ServerPort)
-	// TODO: инициализировать приложение (app)
+
 	application := New(log, 8303)
 
-	// TODO: запустить gRPC-сервер приложения
 	go application.MustRun()
 
-	CurrencyRequestParameters := dto.ExchangeRateRequestDTO{
-		BasicCurrency:    "USD",
-		ExchangeCurrency: "EUR",
-		StartPeriod:      "2024-05-01",
-		EndPeriod:        "2024-05-31",
-	}
-
-	Message, err := currency.MakeCurrencyRequest(&CurrencyRequestParameters)
-
-	if err != nil {
-		fmt.Printf("Error while execute request: %v\n", err)
-	}
-	if err == nil {
-		fmt.Printf("%s", Message.Currency)
-	}
-
-	// TODO: Graceful shutdown
+	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 
