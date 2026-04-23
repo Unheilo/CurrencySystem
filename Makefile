@@ -1,4 +1,4 @@
-.PHONY: run build test migrate proto clean
+.PHONY: run build test test-integration migrate proto clean
 
 CONFIG_PATH=currency/internal/config/config.yaml
 MAIN_PATH=currency/cmd/currency/main.go
@@ -16,6 +16,10 @@ build:
 # Запуск тестов
 test:
 	go test ./...
+
+# Запуск интеграционных тестов
+test-integration:
+	set "CONFIG_PATH=$(CURDIR)/$(CONFIG_PATH)" && go test -tags=integration -v ./...
 
 # Запуск мигратора
 migrate:
