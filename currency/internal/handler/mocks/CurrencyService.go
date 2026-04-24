@@ -16,24 +16,6 @@ type CurrencyService struct {
 	mock.Mock
 }
 
-// FetchAndSaveCurrencyRates provides a mock function with given fields: ctx, baseCurrency
-func (_m *CurrencyService) FetchAndSaveCurrencyRates(ctx context.Context, baseCurrency string) error {
-	ret := _m.Called(ctx, baseCurrency)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FetchAndSaveCurrencyRates")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, baseCurrency)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // GetCurrencyRatesInInterval provides a mock function with given fields: ctx, reqDTO
 func (_m *CurrencyService) GetCurrencyRatesInInterval(ctx context.Context, reqDTO *dto.CurrencyRequestDTO) ([]repository.CurrencyRate, error) {
 	ret := _m.Called(ctx, reqDTO)

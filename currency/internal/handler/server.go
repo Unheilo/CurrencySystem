@@ -12,7 +12,6 @@ import (
 
 type CurrencyService interface {
 	GetCurrencyRatesInInterval(ctx context.Context, reqDTO *dto.CurrencyRequestDTO) ([]repository.CurrencyRate, error)
-	FetchAndSaveCurrencyRates(ctx context.Context, baseCurrency string) error
 }
 
 // todo tests

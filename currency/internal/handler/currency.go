@@ -11,6 +11,12 @@ import (
 )
 
 func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRequest) (*currency.GetRateResponse, error) {
+
+	// ValidationErr := rateRequestValidation(request)
+	// if err != nil {
+	// 	return nil, ValidationErr
+	// }
+
 	start := time.Now()
 	reqDTO := dto.CurrencyRequestDTOFromProtobuf(request)
 
@@ -35,3 +41,19 @@ func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRe
 		Rates:    rateRecords,
 	}, nil
 }
+
+// func rateRequestValidation(req *currecy.GetRateRequest) error {
+
+// 	if req.GetBaseCurrency() == "" {
+// 		return nil, status.Error(codes.InvalidArgument, "currency is required")
+// 	}
+
+// 	if req.GetCurrency() == "" {
+// 		return nil, status.Error(codes.InvalidArgument,"exchange currency is required")
+// 	}
+
+// 	if req.GetDataFrom()
+
+// 	if req.
+
+// }

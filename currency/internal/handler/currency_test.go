@@ -33,7 +33,11 @@ func newTestServer(t *testing.T) (*CurrencyServer, *mocks.CurrencyService) {
 		prometheus.HistogramOpts{Name: "test_request_duration", Help: "test", Buckets: prometheus.DefBuckets},
 		[]string{"method"},
 	)
-	appUptime := prometheus.NewGauge(prometheus.GaugeOpts{Name: "test_app_uptime", Help: "test"})
+
+	appUptime := prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "currency_service_uptime_seconds",
+			Help: "Time since service start in seconds"},
+	)
 
 	server := NewCurrencyServer(service, slog.Default(), requestCount, requestDuration, &appUptime)
 	return server, service
@@ -200,7 +204,7 @@ func TestGetRate_DatesPassedCorrectly(t *testing.T) {
 	}
 
 	resp, err := server.GetRate(context.Background(), req)
-	
+
 	require.NoError(t, err)
 	assert.Equal(t, dateFrom, resp.Rates[0].Date.AsTime())
 	assert.Equal(t, dateTo, resp.Rates[1].Date.AsTime())
