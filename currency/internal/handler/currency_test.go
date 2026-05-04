@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -102,9 +104,9 @@ func TestGetRate_EmptyRates(t *testing.T) {
 
 	resp, err := server.GetRate(context.Background(), req)
 
-	require.NoError(t, err)
-	assert.Equal(t, "GBP", resp.Currency)
-	assert.Empty(t, resp.Rates)
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Equal(t, codes.NotFound, status.Code(err))
 }
 
 func TestGetRate_SingleRate(t *testing.T) {

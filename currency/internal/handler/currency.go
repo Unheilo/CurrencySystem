@@ -7,15 +7,17 @@ import (
 	"my-currency-service/pkg/currency"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRequest) (*currency.GetRateResponse, error) {
 
-	// ValidationErr := rateRequestValidation(request)
-	// if err != nil {
-	// 	return nil, ValidationErr
-	// }
+	err := rateRequestValidation(request)
+	if err != nil {
+		return nil, err
+	}
 
 	start := time.Now()
 	reqDTO := dto.CurrencyRequestDTOFromProtobuf(request)
@@ -27,6 +29,10 @@ func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRe
 		return nil, fmt.Errorf("service.GetCurrencyRatesInInterval: %w", err)
 	}
 
+	if len(rates) == 0 {
+		return nil, status.Errorf(codes.NotFound, "no rates in the given period")
+	}
+
 	rateRecords := make([]*currency.RateRecord, len(rates))
 	for i, rate := range rates {
 		rateRecords[i] = &currency.RateRecord{
@@ -36,24 +42,39 @@ func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRe
 	}
 
 	s.requestDuration.WithLabelValues("GetExchangeRate").Observe(time.Since(start).Seconds())
-	return &currency.GetRateResponse{
+	out := &currency.GetRateResponse{
 		Currency: reqDTO.TargetCurrency,
 		Rates:    rateRecords,
-	}, nil
+	}
+
+	// TODO: add from future interceptors logging, tracing, metrics
+	_ = time.Now()
+
+	return out, nil
 }
 
-// func rateRequestValidation(req *currecy.GetRateRequest) error {
+func rateRequestValidation(req *currency.GetRateRequest) error {
 
-// 	if req.GetBaseCurrency() == "" {
-// 		return nil, status.Error(codes.InvalidArgument, "currency is required")
-// 	}
+	if req.GetCurrency() == "" {
+		return status.Error(codes.InvalidArgument, "exchange currency is required")
+	}
 
-// 	if req.GetCurrency() == "" {
-// 		return nil, status.Error(codes.InvalidArgument,"exchange currency is required")
-// 	}
+	if req.GetDataFrom() == nil {
+		return status.Error(codes.InvalidArgument, "data from is required")
+	}
 
-// 	if req.GetDataFrom()
+	if err := req.GetDataFrom().CheckValid(); err != nil {
+		return status.Error(codes.InvalidArgument, "data_from is invalid")
+	}
 
-// 	if req.
+	if req.GetDateTo() == nil {
+		return status.Error(codes.InvalidArgument, "data to is required")
+	}
 
-// }
+	if err := req.GetDateTo().CheckValid(); err != nil {
+		return status.Error(codes.InvalidArgument, "data_to is invalid")
+	}
+
+	return nil
+
+}
