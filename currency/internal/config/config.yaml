@@ -1,5 +1,6 @@
 service:
   server_port: 8303
+  metrics_port: 9303
   env: "local"
 
 api:
@@ -10,7 +11,7 @@ database:
   host: "localhost"
   port: 5430
   user: "postgres_user"
-  password: "postgres_password"
+  password: "<CHANGE_ME>"
   name: "postgres_db"
 
 worker:

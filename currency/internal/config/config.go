@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -9,8 +10,9 @@ import (
 )
 
 type ServiceConfig struct {
-	ServerPort int    `yaml:"server_port"`
-	Env        string `yaml:"env"`
+	ServerPort  int    `yaml:"server_port"`
+	MetricsPort int    `yaml:"metrics_port"`
+	Env         string `yaml:"env"`
 }
 
 type APIConfig struct {
@@ -52,22 +54,35 @@ func (dc DatabaseConfig) ToDSN() string {
 }
 
 func MustLoad() *AppConfig {
-	path := fetchConfigPath()
-	if path == "" {
-		panic("config path is empty")
+
+	cfg, err := Load()
+
+	if err != nil {
+		panic(err)
 	}
 
+	return cfg
+}
+
+func Load() (*AppConfig, error) {
+	path := fetchConfigPath()
+	if path == "" {
+		return nil, errors.New("config path is empty (pass --config or set CONFIG_PATH)")
+	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		panic("config file does not exist: " + path)
+		return nil, fmt.Errorf("config file does not exist: %s", path)
 	}
 
 	var cfg AppConfig
-
 	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
-		panic("failed to read config:" + err.Error())
+		return nil, fmt.Errorf("read config: %w", err)
 	}
 
-	return &cfg
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
+	}
+
+	return &cfg, nil
 }
 
 // fetchConfigPath fetches config path from command line flag or environment variable.
@@ -86,4 +101,24 @@ func fetchConfigPath() string {
 
 	return res
 
+}
+
+func (c *AppConfig) Validate() error {
+	if c.Service.ServerPort <= 0 || c.Service.ServerPort > 65535 {
+		return fmt.Errorf("service.server_port out of range: %d", c.Service.ServerPort)
+	}
+
+	if c.Service.MetricsPort <= 0 || c.Service.MetricsPort > 65535 {
+		return fmt.Errorf("service.metrics_port out of range: %d", c.Service.MetricsPort)
+	}
+
+	if c.API.TimeoutSeconds <= 0 {
+		return fmt.Errorf("api.timeout_seconds must be positive: %d", c.API.TimeoutSeconds)
+	}
+
+	if c.Database.Host == "" {
+		return errors.New("database.host is empty")
+	}
+
+	return nil
 }

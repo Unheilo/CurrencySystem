@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 )
@@ -27,6 +28,8 @@ func SetupLogger(env string) (*slog.Logger, error) {
 		log = slog.New(
 			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
 		)
+	default:
+		return nil, fmt.Errorf("unknown env %q (expected: local|dev|prod)", env)
 	}
 
 	return log, nil

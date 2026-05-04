@@ -1,5 +1,6 @@
 service:
   server_port: "8303"
+  metrics_port: "9303"
   env: "local"
 
 api:

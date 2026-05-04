@@ -6,3 +6,5 @@ docs/
 .vscode/
 CLAUDE.md
 cron.exe
+currency/internal/config/config.yaml
+.env
