@@ -17,8 +17,9 @@ type CurrencyService interface {
 // todo tests
 type CurrencyServer struct {
 	currency.UnimplementedCurrencyServiceServer
-	service CurrencyService
-	logger  *slog.Logger
+	service             CurrencyService
+	logger              *slog.Logger
+	defaultBaseCurrency string
 
 	requestCount    *prometheus.CounterVec
 	requestDuration *prometheus.HistogramVec
@@ -26,14 +27,16 @@ type CurrencyServer struct {
 }
 
 func NewCurrencyServer(svc CurrencyService, logger *slog.Logger,
+	defaultBaseCurrency string,
 	requestCount *prometheus.CounterVec, requestDuration *prometheus.HistogramVec,
 	appUptime *prometheus.Gauge) *CurrencyServer {
 
 	return &CurrencyServer{
-		service:         svc,
-		logger:          logger,
-		requestCount:    requestCount,
-		requestDuration: requestDuration,
-		appUptime:       appUptime,
+		service:             svc,
+		logger:              logger,
+		defaultBaseCurrency: defaultBaseCurrency,
+		requestCount:        requestCount,
+		requestDuration:     requestDuration,
+		appUptime:           appUptime,
 	}
 }

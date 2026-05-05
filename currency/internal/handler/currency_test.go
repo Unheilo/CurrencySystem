@@ -5,13 +5,12 @@ import (
 	"errors"
 	"log/slog"
 	"math/rand/v2"
+	"my-currency-service/currency/internal/dto"
 	"my-currency-service/currency/internal/handler/mocks"
 	"my-currency-service/currency/internal/repository"
 	"my-currency-service/pkg/currency"
 	"testing"
 	"time"
-
-	"my-currency-service/currency/internal/dto"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +23,7 @@ import (
 
 // newTestServer создаёт CurrencyServer с моком и заглушками метрик.
 // Возвращает сервер и мок, чтобы в тесте настроить ожидания.
-func newTestServer(t *testing.T) (*CurrencyServer, *mocks.CurrencyService) {
+func newTestServer(t *testing.T, baseCurrency string) (*CurrencyServer, *mocks.CurrencyService) {
 	service := mocks.NewCurrencyService(t)
 
 	requestCount := prometheus.NewCounterVec(
@@ -41,12 +40,12 @@ func newTestServer(t *testing.T) (*CurrencyServer, *mocks.CurrencyService) {
 			Help: "Time since service start in seconds"},
 	)
 
-	server := NewCurrencyServer(service, slog.Default(), requestCount, requestDuration, &appUptime)
+	server := NewCurrencyServer(service, slog.Default(), baseCurrency, requestCount, requestDuration, &appUptime)
 	return server, service
 }
 
 func TestGetRate_Success(t *testing.T) {
-	server, service := newTestServer(t)
+	server, service := newTestServer(t, "USD")
 
 	now := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 
@@ -72,7 +71,7 @@ func TestGetRate_Success(t *testing.T) {
 }
 
 func TestGetRate_ServiceError(t *testing.T) {
-	server, service := newTestServer(t)
+	server, service := newTestServer(t, "USD")
 
 	service.On("GetCurrencyRatesInInterval", mock.Anything, mock.Anything).
 		Return(nil, errors.New("db connection failed"))
@@ -91,7 +90,7 @@ func TestGetRate_ServiceError(t *testing.T) {
 }
 
 func TestGetRate_EmptyRates(t *testing.T) {
-	server, service := newTestServer(t)
+	server, service := newTestServer(t, "USD")
 
 	service.On("GetCurrencyRatesInInterval", mock.Anything, mock.Anything).
 		Return([]repository.CurrencyRate{}, nil)
@@ -110,7 +109,7 @@ func TestGetRate_EmptyRates(t *testing.T) {
 }
 
 func TestGetRate_SingleRate(t *testing.T) {
-	server, service := newTestServer(t)
+	server, service := newTestServer(t, "USD")
 
 	now := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 
@@ -136,17 +135,18 @@ func TestGetRate_SingleRate(t *testing.T) {
 }
 
 func TestGetRate_DefaultBaseCurrency(t *testing.T) {
-	server, service := newTestServer(t)
+	const configuredDefault = "USD"
+	server, service := newTestServer(t, configuredDefault)
 
 	now := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 
 	service.On("GetCurrencyRatesInInterval", mock.Anything, mock.MatchedBy(func(req *dto.CurrencyRequestDTO) bool {
-		return req.BaseCurrency == dto.DefaultBaseCurrency
+		return req.BaseCurrency == configuredDefault
 	})).Return([]repository.CurrencyRate{
 		{Date: now, Rate: 1.15},
 	}, nil)
 
-	// No BaseCurrency in request — should fall back to DefaultBaseCurrency
+	// No BaseCurrency in request — should fall back to the value injected at construction
 	req := &currency.GetRateRequest{
 		Currency: "EUR",
 		DataFrom: timestamppb.New(time.Now()),
@@ -160,7 +160,7 @@ func TestGetRate_DefaultBaseCurrency(t *testing.T) {
 }
 
 func TestGetRate_CustomBaseCurrency(t *testing.T) {
-	server, service := newTestServer(t)
+	server, service := newTestServer(t, "USD")
 
 	now := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 
@@ -186,7 +186,7 @@ func TestGetRate_CustomBaseCurrency(t *testing.T) {
 }
 
 func TestGetRate_DatesPassedCorrectly(t *testing.T) {
-	server, service := newTestServer(t)
+	server, service := newTestServer(t, "USD")
 
 	dateFrom := time.Date(2025, 3, 10, 0, 0, 0, 0, time.UTC)
 	dateTo := time.Date(2025, 3, 20, 0, 0, 0, 0, time.UTC)
@@ -214,7 +214,7 @@ func TestGetRate_DatesPassedCorrectly(t *testing.T) {
 }
 
 func TestGetRate_ManyRates(t *testing.T) {
-	server, service := newTestServer(t)
+	server, service := newTestServer(t, "USD")
 
 	rates := make([]repository.CurrencyRate, 30)
 	baseDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)

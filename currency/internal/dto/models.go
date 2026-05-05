@@ -7,12 +7,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TODO: вынести в cfg.Worker.CurrencyPair.BaseCurrency и передавать в
-// CurrencyRequestDTOFromProtobuf как параметр — потребует рефактор handler и его тестов
-const (
-	DefaultBaseCurrency = "USD"
-)
-
 type CurrencyRequestDTO struct {
 	BaseCurrency   string
 	TargetCurrency string
@@ -30,10 +24,10 @@ type RateRecordDTO struct {
 	Value float32
 }
 
-func CurrencyRequestDTOFromProtobuf(req *currency.GetRateRequest) *CurrencyRequestDTO {
+func CurrencyRequestDTOFromProtobuf(req *currency.GetRateRequest, defaultBaseCurrency string) *CurrencyRequestDTO {
 	baseCurrency := req.BaseCurrency
 	if baseCurrency == "" {
-		baseCurrency = DefaultBaseCurrency
+		baseCurrency = defaultBaseCurrency
 	}
 	return &CurrencyRequestDTO{
 		BaseCurrency:   baseCurrency,

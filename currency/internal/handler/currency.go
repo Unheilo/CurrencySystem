@@ -20,7 +20,7 @@ func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRe
 	}
 
 	start := time.Now()
-	reqDTO := dto.CurrencyRequestDTOFromProtobuf(request)
+	reqDTO := dto.CurrencyRequestDTOFromProtobuf(request, s.defaultBaseCurrency)
 
 	// TODO: метрики в мидлвары
 	s.requestCount.WithLabelValues("GetRate").Inc()

@@ -91,6 +91,7 @@ func main() {
 
 	currencyServer := handler.NewCurrencyServer(svc,
 		log,
+		cfg.Worker.CurrencyPair.BaseCurrency,
 		requestCount,
 		requestDuration,
 		&appUptime,
