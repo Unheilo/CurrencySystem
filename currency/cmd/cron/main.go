@@ -65,7 +65,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if err := currencyWorker.StartFetchingCurrencyRates(); err != nil {
+	if err := currencyWorker.StartFetchingCurrencyRates(ctx); err != nil {
 		loggerInstance.Error("Error start fetching currency rates",
 			slog.Time("timestamp", time.Now().UTC()),
 			slog.Any("error", err))

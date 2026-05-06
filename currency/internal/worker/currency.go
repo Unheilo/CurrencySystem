@@ -19,6 +19,7 @@ type Currency struct {
 	currencyService CurrencyService
 	cron            *gocron.Scheduler
 	schedule        string
+	timeout         time.Duration
 	baseCurrency    string
 	targetCurrency  string
 	logger          *slog.Logger
@@ -34,15 +35,16 @@ func NewCurrency(
 		currencyService: service,
 		cron:            cron,
 		schedule:        cfg.Schedule,
+		timeout:         time.Duration(cfg.TimeoutSeconds) * time.Second,
 		baseCurrency:    cfg.CurrencyPair.BaseCurrency,
 		targetCurrency:  cfg.CurrencyPair.TargetCurrency,
 		logger:          logger,
 	}
 }
 
-func (w *Currency) StartFetchingCurrencyRates() error {
+func (w *Currency) StartFetchingCurrencyRates(ctx context.Context) error {
+	initialCtx, cancel := context.WithTimeout(ctx, w.timeout)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5) // TODO: move to config
 		defer cancel()
 
 		currencyData := dto.CurrencyRequestDTO{
@@ -52,7 +54,7 @@ func (w *Currency) StartFetchingCurrencyRates() error {
 			DateTo:         time.Now().UTC(),
 		}
 
-		err := w.currencyService.FetchAndSaveCurrencyRates(ctx, &currencyData)
+		err := w.currencyService.FetchAndSaveCurrencyRates(initialCtx, &currencyData)
 
 		if err != nil {
 			w.logger.Error("Failed to fetch currency rate immediately on startup",
@@ -63,10 +65,10 @@ func (w *Currency) StartFetchingCurrencyRates() error {
 	}()
 
 	_, err := w.cron.Cron(w.schedule).Do(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5) //TODO: move to config
-		defer cancel()
+		cctx, ccancel := context.WithTimeout(context.Background(), w.timeout)
+		defer ccancel()
 
-		err := w.currencyService.FetchAndSaveCurrencyRates(ctx, &dto.CurrencyRequestDTO{
+		err := w.currencyService.FetchAndSaveCurrencyRates(cctx, &dto.CurrencyRequestDTO{
 			BaseCurrency:   w.baseCurrency,
 			TargetCurrency: w.targetCurrency,
 		})

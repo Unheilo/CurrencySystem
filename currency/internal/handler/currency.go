@@ -19,11 +19,11 @@ func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRe
 		return nil, err
 	}
 
-	start := time.Now()
+	//start := time.Now()
 	reqDTO := dto.CurrencyRequestDTOFromProtobuf(request, s.defaultBaseCurrency)
 
 	// TODO: метрики в мидлвары
-	s.requestCount.WithLabelValues("GetRate").Inc()
+	//s.requestCount.WithLabelValues("GetRate").Inc()
 	rates, err := s.service.GetCurrencyRatesInInterval(ctx, reqDTO)
 	if err != nil {
 		return nil, fmt.Errorf("service.GetCurrencyRatesInInterval: %w", err)
@@ -41,7 +41,7 @@ func (s CurrencyServer) GetRate(ctx context.Context, request *currency.GetRateRe
 		}
 	}
 
-	s.requestDuration.WithLabelValues("GetExchangeRate").Observe(time.Since(start).Seconds())
+	//s.requestDuration.WithLabelValues("GetExchangeRate").Observe(time.Since(start).Seconds())
 	out := &currency.GetRateResponse{
 		Currency: reqDTO.TargetCurrency,
 		Rates:    rateRecords,
@@ -73,6 +73,10 @@ func rateRequestValidation(req *currency.GetRateRequest) error {
 
 	if err := req.GetDateTo().CheckValid(); err != nil {
 		return status.Error(codes.InvalidArgument, "data_to is invalid")
+	}
+
+	if req.GetDateTo().AsTime().Before(req.GetDataFrom().AsTime()) {
+		return status.Error(codes.InvalidArgument, "date_to must be after data_from")
 	}
 
 	return nil

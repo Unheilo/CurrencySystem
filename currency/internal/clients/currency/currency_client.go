@@ -70,6 +70,7 @@ func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyR
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
+			c.logger.Debug("rows close failed", slog.Any("error", err))
 		}
 	}(resp.Body)
 

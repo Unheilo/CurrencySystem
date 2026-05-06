@@ -31,8 +31,9 @@ type DatabaseConfig struct {
 }
 
 type WorkerConfig struct {
-	Schedule     string `yaml:"schedule"`
-	CurrencyPair struct {
+	Schedule       string `yaml:"schedule"`
+	TimeoutSeconds int    `yaml:"timeout_seconds"`
+	CurrencyPair   struct {
 		BaseCurrency   string `yaml:"base_currency"`
 		TargetCurrency string `yaml:"target_currency"`
 	} `yaml:"currency_pair"`

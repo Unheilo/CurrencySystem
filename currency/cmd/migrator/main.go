@@ -24,7 +24,7 @@ func main() {
 	defer func(conn *sql.DB) {
 		err := conn.Close()
 		if err != nil {
-
+			fmt.Printf("failed to close database connection: %v\n", err)
 		}
 	}(conn)
 
