@@ -6,6 +6,7 @@ import (
 	currencyClient "my-currency-service/currency/internal/clients/currency"
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/handler"
+	"my-currency-service/currency/internal/interceptors"
 	"my-currency-service/currency/internal/logger"
 	"my-currency-service/currency/internal/repository"
 	"my-currency-service/currency/internal/service"
@@ -142,7 +143,13 @@ func New(
 	//authService authgrpc.Auth,
 	port int,
 ) *App {
-	gRPCServer := grpc.NewServer()
+	gRPCServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
+		interceptors.Recovery(log),
+		interceptors.RequestID(),
+		interceptors.Logging(log),
+		interceptors.Metrics(requestCount, requestDuration),
+	),
+	)
 
 	currency.RegisterCurrencyServiceServer(gRPCServer, currencyServer)
 
