@@ -7,6 +7,7 @@ import (
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/handler"
 	"my-currency-service/currency/internal/logger"
+	"my-currency-service/currency/internal/metrics"
 	"my-currency-service/currency/internal/repository"
 	"my-currency-service/currency/internal/service"
 	"my-currency-service/pkg/currency"
@@ -18,7 +19,6 @@ import (
 
 	"my-currency-service/currency/internal/db"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -26,36 +26,36 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var (
-	requestCount = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "currency_requests_total",
-			Help: "Total number of requets handled by the currency service",
-		},
-		[]string{"method"},
-	)
+// var (
+// 	requestCount = prometheus.NewCounterVec(
+// 		prometheus.CounterOpts{
+// 			Name: "currency_requests_total",
+// 			Help: "Total number of requets handled by the currency service",
+// 		},
+// 		[]string{"method"},
+// 	)
 
-	requestDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "currency_request_duration_seconds",
-			Help:    "Histogram of repsonse times for requests",
-			Buckets: prometheus.DefBuckets,
-		},
-		[]string{"method"},
-	)
+// 	requestDuration = prometheus.NewHistogramVec(
+// 		prometheus.HistogramOpts{
+// 			Name:    "currency_request_duration_seconds",
+// 			Help:    "Histogram of repsonse times for requests",
+// 			Buckets: prometheus.DefBuckets,
+// 		},
+// 		[]string{"method"},
+// 	)
 
-	appUptime = prometheus.NewGauge(
-		prometheus.GaugeOpts{Name: "currency_service_uptime_seconds",
-			Help: "Time since service start in seconds"},
-	)
-)
+// 	appUptime = prometheus.NewGauge(
+// 		prometheus.GaugeOpts{Name: "currency_service_uptime_seconds",
+// 			Help: "Time since service start in seconds"},
+// 	)
+// )
 
 // metrics registration
-func init() {
-	prometheus.MustRegister(requestCount)
-	prometheus.MustRegister(requestDuration)
-	prometheus.MustRegister(appUptime)
-}
+// func init() {
+// 	prometheus.MustRegister(requestCount)
+// 	prometheus.MustRegister(requestDuration)
+// 	prometheus.MustRegister(appUptime)
+// }
 
 func main() {
 
@@ -88,13 +88,14 @@ func main() {
 	svc := service.NewCurrency(repo, CurrencyClient, log)
 
 	//middleware
+	m := metrics.New()
 
 	currencyServer := handler.NewCurrencyServer(svc,
 		log,
 		cfg.Worker.CurrencyPair.BaseCurrency,
-		requestCount,
-		requestDuration,
-		&appUptime,
+		m.ReqCount,
+		m.ReqDuration,
+		m.AppUptime,
 		/*metrics*/) // TODO: implement metrics
 
 	go func() {
