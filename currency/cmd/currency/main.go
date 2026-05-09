@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	currencyClient "my-currency-service/currency/internal/clients/currency"
@@ -17,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"my-currency-service/currency/internal/db"
 
@@ -26,37 +29,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
-
-// var (
-// 	requestCount = prometheus.NewCounterVec(
-// 		prometheus.CounterOpts{
-// 			Name: "currency_requests_total",
-// 			Help: "Total number of requets handled by the currency service",
-// 		},
-// 		[]string{"method"},
-// 	)
-
-// 	requestDuration = prometheus.NewHistogramVec(
-// 		prometheus.HistogramOpts{
-// 			Name:    "currency_request_duration_seconds",
-// 			Help:    "Histogram of repsonse times for requests",
-// 			Buckets: prometheus.DefBuckets,
-// 		},
-// 		[]string{"method"},
-// 	)
-
-// 	appUptime = prometheus.NewGauge(
-// 		prometheus.GaugeOpts{Name: "currency_service_uptime_seconds",
-// 			Help: "Time since service start in seconds"},
-// 	)
-// )
-
-// metrics registration
-// func init() {
-// 	prometheus.MustRegister(requestCount)
-// 	prometheus.MustRegister(requestDuration)
-// 	prometheus.MustRegister(appUptime)
-// }
 
 func main() {
 
@@ -71,6 +43,7 @@ func main() {
 	log.Info("Starting application",
 		slog.String("config", cfg.Service.Env),
 		slog.Int("grpc_port", cfg.Service.ServerPort),
+		slog.Int("metrics_port", cfg.Service.MetricsPort),
 	)
 
 	conn, err := db.NewDatabaseConnection(cfg.Database)
@@ -83,51 +56,65 @@ func main() {
 	CurrencyClient, err := currencyClient.New(cfg.API, log)
 	if err != nil {
 		log.Error("error while create client", slog.Any("error", err))
+		_ = conn.Close()
 		os.Exit(1)
 	}
 
 	svc := service.NewCurrency(repo, CurrencyClient, log)
 
-	//middleware
 	m := metrics.New()
 
-	currencyServer := handler.NewCurrencyServer(svc,
-		log,
-		cfg.Worker.CurrencyPair.BaseCurrency,
-		m.ReqCount,
-		m.ReqDuration,
-		m.AppUptime,
-		/*metrics*/) // TODO: implement metrics
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.HandlerFor(m.Registry, promhttp.HandlerOpts{}))
+
+	metricsSrv := &http.Server{
+		Addr:              fmt.Sprintf(":%d", cfg.Service.MetricsPort),
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
 	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-		log.Info("Prometheus metrics server running on :8081") //TODO: сделать в конфиге порт прометея
-		if err := http.ListenAndServe(":8081", nil); err != nil {
-			log.Error("error starting Prometheus metrics server", slog.Any("error", err))
+		log.Info("Prometheus metrics server running", slog.String("addr", metricsSrv.Addr))
+		if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("metrics server", slog.Any("error", err))
 		}
 	}()
 
-	application := New(log, currencyServer, cfg.Service.ServerPort)
+	currencyServer := handler.NewCurrencyServer(svc,
+		log,
+		cfg.Worker.CurrencyPair.BaseCurrency)
+
+	application := New(log, currencyServer, cfg.Service.ServerPort, m)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 
 	errCh := make(chan error, 1)
-	// Starting Application
 	go func() { errCh <- application.Run() }()
+
+	exitCode := 0
 	select {
 	case sig := <-stop:
-		// Graceful shutdown
 		log.Info("stopping application", slog.String("signal", sig.String()))
-		log.Info("signal", slog.String("signal", sig.String()))
 	case err := <-errCh:
 		log.Error("server failed", slog.Any("error", err))
-		os.Exit(1)
+		exitCode = 1
 	}
 
 	application.Stop()
-	log.Info("application stopped")
 
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+		log.Error("metrics server shutdown", slog.Any("error", err))
+	}
+
+	if err := conn.Close(); err != nil {
+		log.Error("db close", slog.Any("error", err))
+	}
+
+	log.Info("application stopped")
+	os.Exit(exitCode)
 }
 
 type App struct {
@@ -143,12 +130,13 @@ func New(
 	currencyServer *handler.CurrencyServer,
 	//authService authgrpc.Auth,
 	port int,
+	m *metrics.Metrics,
 ) *App {
 	gRPCServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
 		interceptors.Recovery(log),
 		interceptors.RequestID(),
 		interceptors.Logging(log),
-		interceptors.Metrics(requestCount, requestDuration),
+		interceptors.Metrics(m.ReqCount, m.ReqDuration),
 	),
 	)
 

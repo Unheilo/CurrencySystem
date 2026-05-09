@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -21,26 +20,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// newTestServer создаёт CurrencyServer с моком и заглушками метрик.
+// newTestServer создаёт CurrencyServer с моком сервиса.
 // Возвращает сервер и мок, чтобы в тесте настроить ожидания.
 func newTestServer(t *testing.T, baseCurrency string) (*CurrencyServer, *mocks.CurrencyService) {
 	service := mocks.NewCurrencyService(t)
-
-	requestCount := prometheus.NewCounterVec(
-		prometheus.CounterOpts{Name: "test_request_count", Help: "test"},
-		[]string{"method"},
-	)
-	requestDuration := prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{Name: "test_request_duration", Help: "test", Buckets: prometheus.DefBuckets},
-		[]string{"method"},
-	)
-
-	appUptime := prometheus.NewGauge(
-		prometheus.GaugeOpts{Name: "currency_service_uptime_seconds",
-			Help: "Time since service start in seconds"},
-	)
-
-	server := NewCurrencyServer(service, slog.Default(), baseCurrency, requestCount, requestDuration, &appUptime)
+	server := NewCurrencyServer(service, slog.Default(), baseCurrency)
 	return server, service
 }
 

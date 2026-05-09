@@ -6,8 +6,6 @@ import (
 	"my-currency-service/currency/internal/dto"
 	"my-currency-service/currency/internal/repository"
 	"my-currency-service/pkg/currency"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type CurrencyService interface {
@@ -20,23 +18,14 @@ type CurrencyServer struct {
 	service             CurrencyService
 	logger              *slog.Logger
 	defaultBaseCurrency string
-
-	requestCount    *prometheus.CounterVec
-	requestDuration *prometheus.HistogramVec
-	appUptime       *prometheus.Gauge
 }
 
 func NewCurrencyServer(svc CurrencyService, logger *slog.Logger,
-	defaultBaseCurrency string,
-	requestCount *prometheus.CounterVec, requestDuration *prometheus.HistogramVec,
-	appUptime *prometheus.Gauge) *CurrencyServer {
+	defaultBaseCurrency string) *CurrencyServer {
 
 	return &CurrencyServer{
 		service:             svc,
 		logger:              logger,
 		defaultBaseCurrency: defaultBaseCurrency,
-		requestCount:        requestCount,
-		requestDuration:     requestDuration,
-		appUptime:           appUptime,
 	}
 }
