@@ -10,7 +10,7 @@ import (
 
 type ctxKey struct{ name string }
 
-var RequestIDKey = ctxKey{"request_id"}
+var requestIDKey = ctxKey{"request_id"}
 
 const MDHeaderRequestID = "x-request-id"
 
@@ -28,13 +28,13 @@ func RequestID() grpc.UnaryServerInterceptor {
 		if id == "" {
 			id = uuid.NewString()
 		}
-		ctx = context.WithValue(ctx, RequestIDKey, id)
+		ctx = context.WithValue(ctx, requestIDKey, id)
 		return handler(ctx, req)
 	}
 }
 
 func RequestIDFromContext(ctx context.Context) string {
-	if v, ok := ctx.Value(RequestIDKey).(string); ok {
+	if v, ok := ctx.Value(requestIDKey).(string); ok {
 		return v
 	}
 	return ""
