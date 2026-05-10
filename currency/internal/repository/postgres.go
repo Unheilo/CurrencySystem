@@ -9,15 +9,21 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+type RepositoryMetrics struct {
+	DBQueryDuration *prometheus.HistogramVec
+}
 
 // PostgresRepository implements ExchangeRateRepository for PostgreSQL.
 type PostgresRepository struct {
-	DB *sql.DB
+	DB      *sql.DB
+	metrics RepositoryMetrics
 }
 
-func NewPostgresRepository(db *sql.DB) *PostgresRepository {
-	return &PostgresRepository{DB: db}
+func NewPostgresRepository(db *sql.DB, metrics RepositoryMetrics) *PostgresRepository {
+	return &PostgresRepository{DB: db, metrics: metrics}
 }
 
 type CurrencyRate struct {
@@ -31,6 +37,11 @@ func (repo *PostgresRepository) Save(
 	baseCurrency string,
 	rates map[string]float64,
 ) error {
+	start := time.Now()
+	defer func() {
+		repo.metrics.DBQueryDuration.WithLabelValues("save").Observe(time.Since(start).Seconds())
+	}()
+
 	ratesJSON, err := json.Marshal(rates)
 	if err != nil {
 		return fmt.Errorf("failed to marshal currency rates: %w", err)
@@ -56,6 +67,11 @@ func (repo *PostgresRepository) FindInInterval(
 	ctx context.Context,
 	dto *dto.CurrencyRequestDTO,
 ) ([]CurrencyRate, error) {
+	start := time.Now()
+	defer func() {
+		repo.metrics.DBQueryDuration.WithLabelValues("find_in_interval").Observe(time.Since(start).Seconds())
+	}()
+
 	query := `
 		SELECT date, (currency_rates ->> $1)::float 
 		FROM exchange_rates

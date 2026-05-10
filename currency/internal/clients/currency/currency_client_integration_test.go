@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +23,18 @@ func newTestClient(t *testing.T) Currency {
 		t.Fatalf("error creating logger: %v", err)
 	}
 
-	client, err := New(cfg.API, loggerInstance)
+	metrics := ECBMetrics{
+		RequestDuration: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{Name: "test_ecb_request_duration_seconds"},
+			[]string{"outcome"},
+		),
+		Errors: prometheus.NewCounterVec(
+			prometheus.CounterOpts{Name: "test_ecb_errors_total"},
+			[]string{"reason"},
+		),
+	}
+
+	client, err := New(cfg.API, loggerInstance, metrics)
 	require.NoError(t, err)
 	return client
 }

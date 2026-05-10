@@ -38,6 +38,14 @@ func New() *Metrics {
 		),
 		ReqDuration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
+				Name:    "currency_request_duration_seconds",
+				Buckets: []float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+			},
+			[]string{"method"},
+		),
+
+		ECBRequestDuration: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
 				Name:    "currency_ecb_api_request_duration_seconds",
 				Buckets: []float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
 			},
@@ -57,6 +65,14 @@ func New() *Metrics {
 		),
 		FetchJobRuns: prometheus.NewCounterVec(
 			prometheus.CounterOpts{Name: "currency_fetch_job_runs_total"},
+			[]string{"operation"},
+		),
+
+		DBQueryDuration: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "currency_db_query_duration_seconds",
+				Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5},
+			},
 			[]string{"operation"},
 		),
 

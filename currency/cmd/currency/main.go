@@ -52,16 +52,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	repo := repository.NewPostgresRepository(conn)
-	CurrencyClient, err := currencyClient.New(cfg.API, log)
-	if err != nil {
-		log.Error("error while create client", slog.Any("error", err))
-		_ = conn.Close()
-		os.Exit(1)
-	}
-
-	svc := service.NewCurrency(repo, CurrencyClient, log)
-
 	m := metrics.New()
 
 	metricsMux := http.NewServeMux()
@@ -79,6 +69,23 @@ func main() {
 			log.Error("metrics server", slog.Any("error", err))
 		}
 	}()
+
+	repo := repository.NewPostgresRepository(conn, repository.RepositoryMetrics{
+		DBQueryDuration: m.DBQueryDuration,
+	})
+
+	CurrencyClient, err := currencyClient.New(cfg.API, log, currencyClient.ECBMetrics{
+		RequestDuration: m.ECBRequestDuration,
+		Errors:          m.ECBErrors,
+	})
+
+	if err != nil {
+		log.Error("error while create client", slog.Any("error", err))
+		_ = conn.Close()
+		os.Exit(1)
+	}
+
+	svc := service.NewCurrency(repo, CurrencyClient, log)
 
 	currencyServer := handler.NewCurrencyServer(svc,
 		log,

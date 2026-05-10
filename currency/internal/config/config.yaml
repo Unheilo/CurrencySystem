@@ -16,6 +16,7 @@ database:
 
 worker:
   schedule: "@daily"
+  metrics_port: 9304
   currency_pair:
     base_currency: "USD"
     target_currency: "EUR"

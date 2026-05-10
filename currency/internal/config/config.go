@@ -33,6 +33,7 @@ type DatabaseConfig struct {
 type WorkerConfig struct {
 	Schedule       string `yaml:"schedule"`
 	TimeoutSeconds int    `yaml:"timeout_seconds"`
+	MetricsPort    int    `yaml:"metrics_port"`
 	CurrencyPair   struct {
 		BaseCurrency   string `yaml:"base_currency"`
 		TargetCurrency string `yaml:"target_currency"`
@@ -111,6 +112,14 @@ func (c *AppConfig) Validate() error {
 
 	if c.Service.MetricsPort <= 0 || c.Service.MetricsPort > 65535 {
 		return fmt.Errorf("service.metrics_port out of range: %d", c.Service.MetricsPort)
+	}
+
+	if c.Worker.MetricsPort <= 0 || c.Worker.MetricsPort > 65535 {
+		return fmt.Errorf("worker.metrics_port out of range: %d", c.Worker.MetricsPort)
+	}
+
+	if c.Worker.MetricsPort == c.Service.MetricsPort {
+		return fmt.Errorf("worker.metrics_port and service.metrics_port must differ: %d", c.Worker.MetricsPort)
 	}
 
 	if c.API.TimeoutSeconds <= 0 {

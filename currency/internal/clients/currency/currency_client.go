@@ -13,15 +13,23 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Currency struct {
 	baseURL    string
 	httpClient *http.Client
 	logger     *slog.Logger
+	metrics    ECBMetrics
 }
 
-func New(cfg config.APIConfig, logger *slog.Logger) (Currency, error) {
+type ECBMetrics struct {
+	RequestDuration *prometheus.HistogramVec
+	Errors          *prometheus.CounterVec
+}
+
+func New(cfg config.APIConfig, logger *slog.Logger, metrics ECBMetrics) (Currency, error) {
 	return Currency{
 		baseURL: cfg.BaseURL,
 		httpClient: &http.Client{
@@ -30,7 +38,8 @@ func New(cfg config.APIConfig, logger *slog.Logger) (Currency, error) {
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.SkipVerify},
 			},
 		},
-		logger: logger,
+		logger:  logger,
+		metrics: metrics,
 	}, nil
 }
 
@@ -46,6 +55,8 @@ func (c *Currency) buildURL(ReqData *dto.CurrencyRequestDTO) (string, error) {
 }
 
 func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyRequestDTO) (map[string]float64, error) {
+
+	start := time.Now()
 
 	messageUrl, err := c.buildURL(ReqData)
 	if err != nil {
@@ -63,8 +74,11 @@ func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyR
 	req.Header.Add("Accept", "application/vnd.sdmx.structurespecificdata+xml;version=2.1")
 
 	resp, err := c.httpClient.Do(req)
+	duration := time.Since(start).Seconds()
 
 	if err != nil {
+		c.metrics.RequestDuration.WithLabelValues("error").Observe(duration)
+		c.metrics.Errors.WithLabelValues("network").Inc()
 		return nil, fmt.Errorf("Error while execute request: %v\n", err)
 	}
 	defer func(Body io.ReadCloser) {
@@ -75,6 +89,8 @@ func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyR
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
+		c.metrics.RequestDuration.WithLabelValues("http_error").Observe(duration)
+		c.metrics.Errors.WithLabelValues(fmt.Sprintf("http_%d", resp.StatusCode)).Inc()
 		return nil, fmt.Errorf("Server returned error: %s\n", resp.Status)
 	}
 
@@ -88,7 +104,7 @@ func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyR
 		return nil, fmt.Errorf("Error while parsing XML: %v\n", err)
 	}
 
-	// TODO: add metrics for this method
+	c.metrics.RequestDuration.WithLabelValues("success").Observe(duration)
 
 	rates := make(map[string]float64, len(points))
 	for _, p := range points {
