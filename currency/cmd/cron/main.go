@@ -97,7 +97,9 @@ func run() error {
 
 	<-ctx.Done()
 
-	currencyWorker.Stop()
+	if err := currencyWorker.Stop(); err != nil {
+		loggerInstance.Error("worker stop", slog.Any("error", err))
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

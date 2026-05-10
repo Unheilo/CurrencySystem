@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,6 +23,7 @@ type Currency struct {
 	httpClient *http.Client
 	logger     *slog.Logger
 	metrics    ECBMetrics
+	retry      RetryPolicy
 }
 
 type ECBMetrics struct {
@@ -40,6 +42,11 @@ func New(cfg config.APIConfig, logger *slog.Logger, metrics ECBMetrics) (Currenc
 		},
 		logger:  logger,
 		metrics: metrics,
+		retry: RetryPolicy{
+			MaxAttempts: cfg.Retry.MaxAttempts,
+			BaseDelay:   time.Duration(cfg.Retry.BaseDelayMs) * time.Millisecond,
+			MaxDelay:    time.Duration(cfg.Retry.MaxDelayMs) * time.Millisecond,
+		},
 	}, nil
 }
 
@@ -54,65 +61,96 @@ func (c *Currency) buildURL(ReqData *dto.CurrencyRequestDTO) (string, error) {
 		ReqData.DateFrom.Format("2006-01-02"), ReqData.DateTo.Format("2006-01-02")), nil
 }
 
-func (c *Currency) FetchCurrentRates(ctx context.Context, ReqData *dto.CurrencyRequestDTO) (map[string]float64, error) {
+func (c *Currency) FetchCurrentRates(ctx context.Context, req *dto.CurrencyRequestDTO) (map[string]float64, error) {
+	var rates map[string]float64
+	err := c.retry.Do(ctx, func(attempt int) error {
+		if attempt > 0 {
+			c.logger.InfoContext(ctx, "ecb retry", slog.Int("attempt", attempt))
+		}
+		r, err := c.fetchOnce(ctx, req)
+		if err != nil {
+			return err
+		}
+		rates = r
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rates, nil
+}
 
-	start := time.Now()
-
-	messageUrl, err := c.buildURL(ReqData)
+func (c *Currency) fetchOnce(ctx context.Context, req *dto.CurrencyRequestDTO) (map[string]float64, error) {
+	messageURL, err := c.buildURL(req)
 	if err != nil {
 		return nil, err
 	}
 
-	c.logger.DebugContext(ctx, "sending request", slog.String("url", messageUrl))
+	c.logger.DebugContext(ctx, "sending request", slog.String("url", messageURL))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, messageUrl, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, messageURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
-
 	// TODO: Вынести в конфиг формат xml
-	req.Header.Add("Accept", "application/vnd.sdmx.structurespecificdata+xml;version=2.1")
+	httpReq.Header.Add("Accept", "application/vnd.sdmx.structurespecificdata+xml;version=2.1")
 
-	resp, err := c.httpClient.Do(req)
+	start := time.Now()
+	resp, err := c.httpClient.Do(httpReq)
 	duration := time.Since(start).Seconds()
 
 	if err != nil {
-		c.metrics.RequestDuration.WithLabelValues("error").Observe(duration)
-		c.metrics.Errors.WithLabelValues("network").Inc()
-		return nil, fmt.Errorf("Error while execute request: %v\n", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			c.logger.Debug("rows close failed", slog.Any("error", err))
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, err
 		}
-	}(resp.Body)
+		c.metrics.RequestDuration.WithLabelValues("network_error").Observe(duration)
+		c.metrics.Errors.WithLabelValues("network").Inc()
+		return nil, Retriable(fmt.Errorf("http do: %w", err))
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Debug("body close failed", slog.Any("error", err))
+		}
+	}()
 
-	if resp.StatusCode != http.StatusOK {
-		c.metrics.RequestDuration.WithLabelValues("http_error").Observe(duration)
+	switch {
+	case resp.StatusCode == http.StatusOK:
+		c.metrics.RequestDuration.WithLabelValues("success").Observe(duration)
+	case resp.StatusCode == http.StatusTooManyRequests:
+		c.metrics.RequestDuration.WithLabelValues("429").Observe(duration)
+		c.metrics.Errors.WithLabelValues("rate_limited").Inc()
+		return nil, Retriable(fmt.Errorf("rate limited: %s", resp.Status))
+	case resp.StatusCode >= 500:
+		c.metrics.RequestDuration.WithLabelValues("5xx").Observe(duration)
 		c.metrics.Errors.WithLabelValues(fmt.Sprintf("http_%d", resp.StatusCode)).Inc()
-		return nil, fmt.Errorf("Server returned error: %s\n", resp.Status)
+		return nil, Retriable(fmt.Errorf("server error: %s", resp.Status))
+	default:
+		c.metrics.RequestDuration.WithLabelValues("4xx").Observe(duration)
+		c.metrics.Errors.WithLabelValues(fmt.Sprintf("http_%d", resp.StatusCode)).Inc()
+		return nil, fmt.Errorf("client error: %s", resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Error while reading body: %v\n", err)
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+
+	if len(bytes.TrimSpace(body)) == 0 {
+		c.logger.InfoContext(ctx, "ecb returned empty body — no data for requested interval",
+			slog.String("url", messageURL))
+		return map[string]float64{}, nil
 	}
 
 	points, err := extractObs(bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("Error while parsing XML: %v\n", err)
+		return nil, fmt.Errorf("parse xml: %w", err)
 	}
-
-	c.metrics.RequestDuration.WithLabelValues("success").Observe(duration)
 
 	rates := make(map[string]float64, len(points))
 	for _, p := range points {
 		rates[p.Date.Format("2006-01-02")] = float64(p.Value)
 	}
-
 	return rates, nil
-
 }
 
 func extractObs(body io.Reader) ([]dto.RateRecordDTO, error) {

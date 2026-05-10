@@ -24,7 +24,7 @@ test:
 
 # Запуск интеграционных тестов
 test-integration:
-	set "CONFIG_PATH=$(CURDIR)/$(CONFIG_PATH)" && go test -tags=integration -v ./...
+	CONFIG_PATH=$(CURDIR)/$(CONFIG_PATH) go test -tags=integration -v ./...
 
 # Запуск мигратора
 migrate:

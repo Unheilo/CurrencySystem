@@ -60,6 +60,15 @@ func (s *Currency) FetchAndSaveCurrencyRates(ctx context.Context, reqDTO *dto.Cu
 		return fmt.Errorf("failed to fetch currency rates in interval: %w", err)
 	}
 
+	if len(rates) == 0 {
+		s.logger.Info("no currency rates published for interval — skipping save",
+			slog.String("base", reqDTO.BaseCurrency),
+			slog.String("target", reqDTO.TargetCurrency),
+			slog.Time("from", reqDTO.DateFrom),
+			slog.Time("to", reqDTO.DateTo))
+		return nil
+	}
+
 	if err := s.currencyRepo.Save(ctx, dayNow, reqDTO.BaseCurrency, rates); err != nil {
 		return fmt.Errorf("failed to save currency rates in interval: %w", err)
 	}

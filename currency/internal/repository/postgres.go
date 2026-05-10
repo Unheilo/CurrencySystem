@@ -90,12 +90,9 @@ func (repo *PostgresRepository) FindInInterval(
 	if err != nil {
 		return nil, fmt.Errorf("failed to query exchange rates: %w", err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-
-		}
-	}(rows)
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var rates []CurrencyRate
 	for rows.Next() {

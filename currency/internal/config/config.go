@@ -15,10 +15,17 @@ type ServiceConfig struct {
 	Env         string `yaml:"env"`
 }
 
+type APIRetryConfig struct {
+	MaxAttempts int `yaml:"max_attempts"`
+	BaseDelayMs int `yaml:"base_delay_ms"`
+	MaxDelayMs  int `yaml:"max_delay_ms"`
+}
+
 type APIConfig struct {
-	BaseURL        string `yaml:"base_url"`
-	TimeoutSeconds int    `yaml:"timeout_seconds"`
-	SkipVerify     bool   `yaml:"skip_verify"`
+	BaseURL        string         `yaml:"base_url"`
+	TimeoutSeconds int            `yaml:"timeout_seconds"`
+	SkipVerify     bool           `yaml:"skip_verify"`
+	Retry          APIRetryConfig `yaml:"retry"`
 }
 
 type DatabaseConfig struct {
