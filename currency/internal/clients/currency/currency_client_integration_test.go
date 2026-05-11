@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestClient(t *testing.T) Currency {
+func newTestClient(t *testing.T) *Currency {
 	cfg := config.MustLoad()
 
 	loggerInstance, err := logger.SetupLogger(cfg.Service.Env)

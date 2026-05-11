@@ -16,6 +16,14 @@ type CurrencyService struct {
 	mock.Mock
 }
 
+type CurrencyService_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *CurrencyService) EXPECT() *CurrencyService_Expecter {
+	return &CurrencyService_Expecter{mock: &_m.Mock}
+}
+
 // GetCurrencyRatesInInterval provides a mock function with given fields: ctx, reqDTO
 func (_m *CurrencyService) GetCurrencyRatesInInterval(ctx context.Context, reqDTO *dto.CurrencyRequestDTO) ([]repository.CurrencyRate, error) {
 	ret := _m.Called(ctx, reqDTO)
@@ -44,6 +52,35 @@ func (_m *CurrencyService) GetCurrencyRatesInInterval(ctx context.Context, reqDT
 	}
 
 	return r0, r1
+}
+
+// CurrencyService_GetCurrencyRatesInInterval_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCurrencyRatesInInterval'
+type CurrencyService_GetCurrencyRatesInInterval_Call struct {
+	*mock.Call
+}
+
+// GetCurrencyRatesInInterval is a helper method to define mock.On call
+//   - ctx context.Context
+//   - reqDTO *dto.CurrencyRequestDTO
+func (_e *CurrencyService_Expecter) GetCurrencyRatesInInterval(ctx interface{}, reqDTO interface{}) *CurrencyService_GetCurrencyRatesInInterval_Call {
+	return &CurrencyService_GetCurrencyRatesInInterval_Call{Call: _e.mock.On("GetCurrencyRatesInInterval", ctx, reqDTO)}
+}
+
+func (_c *CurrencyService_GetCurrencyRatesInInterval_Call) Run(run func(ctx context.Context, reqDTO *dto.CurrencyRequestDTO)) *CurrencyService_GetCurrencyRatesInInterval_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*dto.CurrencyRequestDTO))
+	})
+	return _c
+}
+
+func (_c *CurrencyService_GetCurrencyRatesInInterval_Call) Return(_a0 []repository.CurrencyRate, _a1 error) *CurrencyService_GetCurrencyRatesInInterval_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CurrencyService_GetCurrencyRatesInInterval_Call) RunAndReturn(run func(context.Context, *dto.CurrencyRequestDTO) ([]repository.CurrencyRate, error)) *CurrencyService_GetCurrencyRatesInInterval_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewCurrencyService creates a new instance of CurrencyService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

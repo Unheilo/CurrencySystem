@@ -1,0 +1,15 @@
+with-expecter: true
+filename: "{{.InterfaceName | snakecase}}.go"
+mockname: "{{.InterfaceName}}"
+outpkg: mocks
+dir: "{{.InterfaceDir}}/mocks"
+packages:
+  my-currency-service/currency/internal/handler:
+    interfaces:
+      CurrencyService:
+  my-currency-service/currency/internal/repository:
+    interfaces:
+      ExchangeRateRepository:
+  my-currency-service/currency/internal/service:
+    interfaces:
+      CurrencyClient:

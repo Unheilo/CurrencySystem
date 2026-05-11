@@ -42,7 +42,7 @@ func newTestMetrics() ECBMetrics {
 	return ECBMetrics{RequestDuration: rd, Errors: errs}
 }
 
-func newHTTPTestClient(t *testing.T, baseURL string, maxAttempts int) Currency {
+func newHTTPTestClient(t *testing.T, baseURL string, maxAttempts int) *Currency {
 	t.Helper()
 	cli, err := New(
 		config.APIConfig{

@@ -8,3 +8,8 @@ CLAUDE.md
 cron.exe
 currency/internal/config/config.yaml
 .env
+
+# Coverage artifacts
+coverage.out
+coverage.html
+coverage/

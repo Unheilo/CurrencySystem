@@ -4,22 +4,25 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"my-currency-service/currency/internal/clients/currency"
 	"my-currency-service/currency/internal/dto"
 	"my-currency-service/currency/internal/repository"
 	"strings"
 	"time"
 )
 
+type CurrencyClient interface {
+	FetchCurrentRates(ctx context.Context, req *dto.CurrencyRequestDTO) (map[string]float64, error)
+}
+
 type Currency struct {
 	currencyRepo repository.ExchangeRateRepository
-	client       currency.Currency
+	client       CurrencyClient
 	logger       *slog.Logger
 }
 
 func NewCurrency(
 	repo repository.ExchangeRateRepository,
-	client currency.Currency,
+	client CurrencyClient,
 	logger *slog.Logger,
 ) *Currency {
 	return &Currency{

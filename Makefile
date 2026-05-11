@@ -1,4 +1,4 @@
-.PHONY: run run-cron build test test-integration migrate proto clean
+.PHONY: run run-cron build test test-unit test-integration test-race coverage migrate proto clean mocks
 
 CONFIG_PATH=currency/internal/config/config.yaml
 MAIN_PATH=currency/cmd/currency/main.go
@@ -19,12 +19,28 @@ build:
 	go build -o $(BINARY_NAME) $(MAIN_PATH)
 
 # Запуск тестов
-test:
-	go test ./...
+test: test-unit
+
+# Запуск тестов с race флагом
+test-race:
+	go test -race ./...
+
+# Пакеты, исключённые из coverage: сгенерированный protobuf-код и моки
+COVER_PKG=$(shell go list ./... | grep -vE '/pkg/currency$$|/mocks$$' | tr '\n' ',' | sed 's/,$$//')
+
+coverage:
+	go test -coverprofile=coverage.out -coverpkg=$(COVER_PKG) ./...
+	go tool cover -func=coverage.out | tail -1
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "open coverage.html in browser"
+
+# Запуск юнит-тестов
+test-unit:
+		go test -short -race ./...
 
 # Запуск интеграционных тестов
 test-integration:
-	CONFIG_PATH=$(CURDIR)/$(CONFIG_PATH) go test -tags=integration -v ./...
+	CONFIG_PATH=$(CURDIR)/$(CONFIG_PATH) go test -tags=integration -race -v ./...
 
 # Запуск мигратора
 migrate:
@@ -43,3 +59,6 @@ lint:
 # Удалить собранный бинарник
 clean:
 	rm -f $(BINARY_NAME)
+
+mocks:
+	mockery

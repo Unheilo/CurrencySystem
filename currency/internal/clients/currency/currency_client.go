@@ -31,8 +31,8 @@ type ECBMetrics struct {
 	Errors          *prometheus.CounterVec
 }
 
-func New(cfg config.APIConfig, logger *slog.Logger, metrics ECBMetrics) (Currency, error) {
-	return Currency{
+func New(cfg config.APIConfig, logger *slog.Logger, metrics ECBMetrics) (*Currency, error) {
+	return &Currency{
 		baseURL: cfg.BaseURL,
 		httpClient: &http.Client{
 			Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
