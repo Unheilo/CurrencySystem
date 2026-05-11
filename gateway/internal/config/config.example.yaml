@@ -1,0 +1,5 @@
+env: "local"
+http_port: 8080
+currency_grpc_addr: "localhost:8303"
+auth_http_addr: "http://localhost:8081"
+# jwt_secret через ENV JWT_SECRET
