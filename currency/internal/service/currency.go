@@ -10,19 +10,19 @@ import (
 	"time"
 )
 
-type CurrencyClient interface {
+type ecbClient interface {
 	FetchCurrentRates(ctx context.Context, req *dto.CurrencyRequestDTO) (map[string]float64, error)
 }
 
 type Currency struct {
 	currencyRepo repository.ExchangeRateRepository
-	client       CurrencyClient
+	client       ecbClient
 	logger       *slog.Logger
 }
 
 func NewCurrency(
 	repo repository.ExchangeRateRepository,
-	client CurrencyClient,
+	client ecbClient,
 	logger *slog.Logger,
 ) *Currency {
 	return &Currency{

@@ -29,7 +29,7 @@ test-race:
 COVER_PKG=$(shell go list ./... | grep -vE '/pkg/currency$$|/mocks$$' | tr '\n' ',' | sed 's/,$$//')
 
 coverage:
-	go test -coverprofile=coverage.out -coverpkg=$(COVER_PKG) ./...
+	CONFIG_PATH=$(CURDIR)/$(CONFIG_PATH) go test -tags=integration -coverprofile=coverage.out -coverpkg=$(COVER_PKG) ./...
 	go tool cover -func=coverage.out | tail -1
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "open coverage.html in browser"

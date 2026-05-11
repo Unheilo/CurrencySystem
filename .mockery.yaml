@@ -12,4 +12,7 @@ packages:
       ExchangeRateRepository:
   my-currency-service/currency/internal/service:
     interfaces:
-      CurrencyClient:
+      ecbClient:
+        config:
+          mockname: "EcbClient"
+          filename: "ecb_client.go"

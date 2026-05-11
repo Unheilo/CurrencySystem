@@ -17,10 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newSUT(t *testing.T) (*Currency, *repomocks.ExchangeRateRepository, *clientmocks.CurrencyClient) {
+func newSUT(t *testing.T) (*Currency, *repomocks.ExchangeRateRepository, *clientmocks.EcbClient) {
 	t.Helper()
 	repo := repomocks.NewExchangeRateRepository(t)
-	client := clientmocks.NewCurrencyClient(t)
+	client := clientmocks.NewEcbClient(t)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := NewCurrency(repo, client, log)
 	return svc, repo, client
@@ -102,12 +102,12 @@ func TestFetchAndSaveCurrencyRates(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		setup   func(*repomocks.ExchangeRateRepository, *clientmocks.CurrencyClient)
+		setup   func(*repomocks.ExchangeRateRepository, *clientmocks.EcbClient)
 		wantErr bool
 	}{
 		{
 			name: "happy - fetches then saves",
-			setup: func(repo *repomocks.ExchangeRateRepository, cli *clientmocks.CurrencyClient) {
+			setup: func(repo *repomocks.ExchangeRateRepository, cli *clientmocks.EcbClient) {
 				cli.EXPECT().FetchCurrentRates(mock.Anything, mock.Anything).
 					Return(map[string]float64{"2025-03-10": 1.10}, nil)
 				repo.EXPECT().Save(mock.Anything, mock.Anything, "USD", mock.Anything).
@@ -116,7 +116,7 @@ func TestFetchAndSaveCurrencyRates(t *testing.T) {
 		},
 		{
 			name: "ecb fails - no save attempted",
-			setup: func(repo *repomocks.ExchangeRateRepository, cli *clientmocks.CurrencyClient) {
+			setup: func(repo *repomocks.ExchangeRateRepository, cli *clientmocks.EcbClient) {
 				cli.EXPECT().FetchCurrentRates(mock.Anything, mock.Anything).
 					Return(nil, errors.New("ecb down"))
 			},
@@ -124,7 +124,7 @@ func TestFetchAndSaveCurrencyRates(t *testing.T) {
 		},
 		{
 			name: "save fails",
-			setup: func(repo *repomocks.ExchangeRateRepository, cli *clientmocks.CurrencyClient) {
+			setup: func(repo *repomocks.ExchangeRateRepository, cli *clientmocks.EcbClient) {
 				cli.EXPECT().FetchCurrentRates(mock.Anything, mock.Anything).
 					Return(map[string]float64{"2025-03-10": 1.10}, nil)
 				repo.EXPECT().Save(mock.Anything, mock.Anything, "USD", mock.Anything).
