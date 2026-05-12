@@ -54,7 +54,7 @@ func parseRateQuery(r *http.Request) (getRateQuery, error) {
 	from, err := time.Parse("2006-01-02", fromStr)
 
 	if err != nil {
-		return getRateQuery{}, wrap("date_from bust be YYYY-MM-DD")
+		return getRateQuery{}, wrap("date_from must be YYYY-MM-DD")
 	}
 
 	toStr := q.Get("date_to")
@@ -72,7 +72,7 @@ func parseRateQuery(r *http.Request) (getRateQuery, error) {
 	}
 
 	if time.Since(from) > 365*24*time.Hour*5 {
-		return getRateQuery{}, wrap("date_from cannot be eqrlier than 5 years ago")
+		return getRateQuery{}, wrap("date_from cannot be earlier than 5 years ago")
 	}
 
 	return getRateQuery{

@@ -73,9 +73,11 @@ func (repo *PostgresRepository) FindInInterval(
 	}()
 
 	query := `
-		SELECT date, (currency_rates ->> $1)::float 
+		SELECT date, (currency_rates ->> $1)::float
 		FROM exchange_rates
-		WHERE date::date BETWEEN $2 AND $3 AND base_currency = $4
+		WHERE date::date BETWEEN $2 AND $3
+		  AND base_currency = $4
+		  AND currency_rates ? $1
 	`
 
 	rows, err := repo.DB.QueryContext(

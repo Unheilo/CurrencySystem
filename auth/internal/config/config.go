@@ -9,12 +9,18 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
+type User struct {
+	Login    string `yaml:"login"`
+	Password string `yaml:"password"`
+}
+
 type Config struct {
-	Env              string `yaml:"env"`
-	HTTPPort         int    `yaml:"http_port"`
-	CurrencyGRPCAddr string `yaml:"currency_grpc_addr" env:"CURRENCY_GRPC_ADDR"`
-	AuthHTTPAddr     string `yaml:"auth_http_addr"     env:"AUTH_HTTP_ADDR"`
-	JWTSecret        string `yaml:"-"                  env:"JWT_SECRET"`
+	Env             string `yaml:"env"`
+	HTTPPort        int    `yaml:"http_port"`
+	TokenTTLMinutes int    `yaml:"token_ttl_minutes"`
+	Issuer          string `yaml:"issuer"`
+	Users           []User `yaml:"users"`
+	JWTSecret       string `yaml:"-" env:"JWT_SECRET"`
 }
 
 func Load() (*Config, error) {
@@ -39,14 +45,19 @@ func Load() (*Config, error) {
 	if cfg.HTTPPort <= 0 {
 		return nil, errors.New("http_port invalid")
 	}
-	if cfg.CurrencyGRPCAddr == "" {
-		return nil, errors.New("currency_grpc_addr empty")
-	}
-	if cfg.AuthHTTPAddr == "" {
-		return nil, errors.New("auth_http_addr empty")
+	if cfg.TokenTTLMinutes <= 0 {
+		return nil, errors.New("token_ttl_minutes must be > 0")
 	}
 	if len(cfg.JWTSecret) < 32 {
 		return nil, errors.New("JWT_SECRET must be at least 32 bytes (HS256 requirement)")
+	}
+	if len(cfg.Users) == 0 {
+		return nil, errors.New("users list must not be empty")
+	}
+	for i, u := range cfg.Users {
+		if u.Login == "" || u.Password == "" {
+			return nil, fmt.Errorf("user[%d]: login and password are required", i)
+		}
 	}
 	return &cfg, nil
 }

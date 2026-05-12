@@ -6,7 +6,7 @@ import (
 	"context"
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/dto"
-	"my-currency-service/currency/internal/logger"
+	"my-currency-service/pkg/logger"
 	"testing"
 	"time"
 
@@ -18,7 +18,7 @@ import (
 func newTestClient(t *testing.T) *Currency {
 	cfg := config.MustLoad()
 
-	loggerInstance, err := logger.SetupLogger(cfg.Service.Env)
+	loggerInstance, err := logger.Setup(cfg.Service.Env)
 	if err != nil {
 		t.Fatalf("error creating logger: %v", err)
 	}

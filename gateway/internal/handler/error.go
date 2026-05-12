@@ -25,7 +25,7 @@ type ErrorDetail struct {
 func WriteError(w http.ResponseWriter, r *http.Request, log *slog.Logger, err error) {
 	var (
 		code    = codes.Internal
-		message = "interrnal server error"
+		message = "internal server error"
 	)
 
 	if s, ok := status.FromError(err); ok {
@@ -37,9 +37,11 @@ func WriteError(w http.ResponseWriter, r *http.Request, log *slog.Logger, err er
 	}
 
 	httpStatus := grpcCodeToHTTP(code)
-	// incapsulate internal detail
-	if code == codes.Internal {
-		log.ErrorContext(r.Context(), "internal error", slog.Any("error", err))
+	if !isClientSafeCode(code) {
+		log.ErrorContext(r.Context(), "internal error",
+			slog.String("code", code.String()),
+			slog.Any("error", err),
+		)
 		message = "internal server error"
 	}
 
@@ -83,3 +85,26 @@ func grpcCodeToHTTP(code codes.Code) int {
 }
 
 var errInvalidQuery = errors.New("invalid query")
+
+// isClientSafeCode возвращает true для кодов, чьё сообщение можно отдать клиенту:
+// они описывают его же ввод или ожидаемую ситуацию. Всё остальное (Internal,
+// Unknown, DataLoss, Unavailable и пр.) маскируется generic-сообщением,
+// чтобы не утечь деталями реализации (SQL, паника и т.п.).
+func isClientSafeCode(code codes.Code) bool {
+	switch code {
+	case codes.InvalidArgument,
+		codes.FailedPrecondition,
+		codes.OutOfRange,
+		codes.NotFound,
+		codes.AlreadyExists,
+		codes.Aborted,
+		codes.Unauthenticated,
+		codes.PermissionDenied,
+		codes.ResourceExhausted,
+		codes.Unimplemented,
+		codes.DeadlineExceeded:
+		return true
+	default:
+		return false
+	}
+}

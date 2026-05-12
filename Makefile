@@ -1,10 +1,16 @@
-.PHONY: run run-cron build test test-unit test-integration test-race coverage migrate proto clean mocks
+.PHONY: run run-cron run-gateway run-auth build build-gateway build-auth test test-unit test-integration test-race coverage migrate proto clean mocks
 
 CONFIG_PATH=currency/internal/config/config.yaml
+GATEWAY_CONFIG_PATH=gateway/internal/config/config.example.yaml
+AUTH_CONFIG_PATH=auth/internal/config/config.example.yaml
 MAIN_PATH=currency/cmd/currency/main.go
 CRON_PATH=currency/cmd/cron/main.go
 MIGRATOR_PATH=currency/cmd/migrator/main.go
+GATEWAY_PATH=gateway/cmd/main.go
+AUTH_PATH=auth/cmd/main.go
 BINARY_NAME=currency.exe
+GATEWAY_BINARY=gateway.exe
+AUTH_BINARY=auth.exe
 
 # Запуск приложения
 run:
@@ -14,9 +20,25 @@ run:
 run-cron:
 	go run $(CRON_PATH) --config=$(CONFIG_PATH)
 
+# Запуск gateway (требует JWT_SECRET в env)
+run-gateway:
+	go run $(GATEWAY_PATH) --config=$(GATEWAY_CONFIG_PATH)
+
 # Сборка бинарника
 build:
 	go build -o $(BINARY_NAME) $(MAIN_PATH)
+
+# Сборка gateway
+build-gateway:
+	go build -o $(GATEWAY_BINARY) $(GATEWAY_PATH)
+
+# Запуск auth (требует JWT_SECRET в env)
+run-auth:
+	go run $(AUTH_PATH) --config=$(AUTH_CONFIG_PATH)
+
+# Сборка auth
+build-auth:
+	go build -o $(AUTH_BINARY) $(AUTH_PATH)
 
 # Запуск тестов
 test: test-unit
@@ -58,7 +80,7 @@ lint:
 
 # Удалить собранный бинарник
 clean:
-	rm -f $(BINARY_NAME)
+	rm -f $(BINARY_NAME) $(GATEWAY_BINARY) $(AUTH_BINARY)
 
 mocks:
 	mockery

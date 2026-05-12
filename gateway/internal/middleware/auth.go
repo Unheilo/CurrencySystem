@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type userCtxKey struct{}
@@ -22,7 +22,7 @@ type AuthConfig struct {
 
 func Auth(log *slog.Logger, cfg AuthConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return http.HandlerFun(func(w http.ResponseWriter, r *http.Request) {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tok := extractBearer(r)
 			if tok == "" {
 				writeUnauth(log, w, r, "missing token")
@@ -33,7 +33,8 @@ func Auth(log *slog.Logger, cfg AuthConfig) func(http.Handler) http.Handler {
 				writeUnauth(log, w, r, err.Error())
 				return
 			}
-			ctx := content.WithValue(r.Context(), UserKey, claims.Subject)
+			setRequestUser(r.Context(), claims.Subject)
+			ctx := context.WithValue(r.Context(), UserKey, claims.Subject)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -59,9 +60,9 @@ func extractBearer(r *http.Request) string {
 }
 
 func validate(tok string, cfg AuthConfig) (*jwt.RegisteredClaims, error) {
-	claims := &jwt.Registeredclaims{}
+	claims := &jwt.RegisteredClaims{}
 	_, err := jwt.ParseWithClaims(tok, claims,
-		func(t *jwt.Token) (interface{}, error) {
+		func(t *jwt.Token) (any, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("unexpected signing method")
 			}
@@ -84,7 +85,7 @@ func validate(tok string, cfg AuthConfig) (*jwt.RegisteredClaims, error) {
 
 func writeUnauth(log *slog.Logger, w http.ResponseWriter, r *http.Request, reason string) {
 	log.InfoContext(r.Context(), "auth failed", slog.String("reason", reason))
-	w.Header().Set("content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("WWW-Authenticate", `Bearer realm="currency"`)
 	w.WriteHeader(http.StatusUnauthorized)
 	_, _ = w.Write([]byte(`{"error":{"code":"UNAUTHENTICATED","message":"unauthorized"}}`))

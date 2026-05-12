@@ -9,7 +9,7 @@ import (
 	"my-currency-service/currency/internal/clients/currency"
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/db"
-	"my-currency-service/currency/internal/logger"
+	"my-currency-service/pkg/logger"
 	"my-currency-service/currency/internal/metrics"
 	"my-currency-service/currency/internal/repository"
 	"my-currency-service/currency/internal/service"
@@ -32,7 +32,7 @@ func main() {
 func run() error {
 	cfg := config.MustLoad()
 
-	loggerInstance, err := logger.SetupLogger(cfg.Service.Env)
+	loggerInstance, err := logger.Setup(cfg.Service.Env)
 	if err != nil {
 		return fmt.Errorf("error creating logger: %v", err)
 	}

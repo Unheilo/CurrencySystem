@@ -38,6 +38,17 @@ services:
     tty: true
     stdin_open: true
 
+  auth:
+    build:
+      context: .
+      dockerfile: auth/Dockerfile
+    container_name: auth_container
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
 volumes:
   pgdata:
     driver: local

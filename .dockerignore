@@ -1,0 +1,15 @@
+.git
+.gitignore
+.idea
+.vscode
+.claude
+.env
+.env.example
+pgdata
+coverage.out
+coverage.html
+coverage
+*.exe
+docs
+monitoring
+deployment

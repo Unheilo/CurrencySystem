@@ -9,7 +9,7 @@ import (
 	"my-currency-service/currency/internal/config"
 	"my-currency-service/currency/internal/handler"
 	"my-currency-service/currency/internal/interceptors"
-	"my-currency-service/currency/internal/logger"
+	"my-currency-service/pkg/logger"
 	"my-currency-service/currency/internal/metrics"
 	"my-currency-service/currency/internal/repository"
 	"my-currency-service/currency/internal/service"
@@ -34,7 +34,7 @@ func main() {
 
 	cfg := config.MustLoad()
 
-	log, err := logger.SetupLogger(cfg.Service.Env)
+	log, err := logger.Setup(cfg.Service.Env)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
 		os.Exit(1)

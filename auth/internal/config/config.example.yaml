@@ -1,0 +1,14 @@
+env: "local"
+http_port: 8081
+token_ttl_minutes: 15
+issuer: "currency-auth"
+
+# WARNING: plain-text passwords below are intentional for this learning project.
+# In production: store bcrypt hashes (field "password_hash") and compare via bcrypt.CompareHashAndPassword.
+users:
+  - login: "alice"
+    password: "wonderland"
+  - login: "bob"
+    password: "builder"
+
+# jwt_secret intentionally NOT here — provided via env JWT_SECRET (same as gateway).
