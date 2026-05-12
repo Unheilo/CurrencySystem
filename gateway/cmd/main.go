@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	client "my-currency-service/gateway/internal/clients"
 	"my-currency-service/gateway/internal/config"
-	"my-currency-service/gateway/internal/logger"
 	"my-currency-service/gateway/internal/handler"
+	"my-currency-service/gateway/internal/logger"
 	"my-currency-service/gateway/internal/middleware"
 	"net/http"
 	"os/signal"
@@ -43,6 +43,7 @@ func run() error {
 	defer currencyClient.Close()
 
 	rateH := handler.NewRateHandler(l, currencyClient)
+	loginH := handler.NewLoginHandler(l, cfg /* или userSvc */)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recovery(l))
@@ -50,8 +51,13 @@ func run() error {
 	r.Use(middleware.Logging(l))
 
 	r.Get("/healthz", handler.Health)
-	r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/rate", rateH.Get)
+	r.Post("/api/v1/login", loginH.Login)
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Auth(l, middleware.AuthConfig{
+			Secret: []byte(cfg.JWTSecret),
+		}))
+		r.Get("/api/v1/rate", rateH.Get)
 	})
 
 	srv := &http.Server{
